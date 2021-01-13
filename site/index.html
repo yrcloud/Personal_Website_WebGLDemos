@@ -7,12 +7,28 @@
     <!-- <script>
         alert("hello world");
     </script> -->
+    <script src="./Shader.js"></script>
+    <script src="./pillars3dVS.js"></script>
+    <script src="./pillars3dFS.js"></script>
+    <script src="./Render.js"></script>
 </head>
 
 <body>
     <h1>TEST WEBSITE</h1>
     <div>hellow world</div>
+    <ul>
+        <li><a href="https://www.google.com/">Go to Google but overflowed</a></li>
+        <li><a href="https://youtube.com">Go to Youtube</a></li>
+    </ul>
+    <canvas id="mainCanvas"></canvas>
     Test plain JS!!
+    <script>
+        const mainCanvas = document.getElementById("mainCanvas");
+        const glContext = mainCanvas.getContext("webgl2");
+        console.log(glContext);
+        console.log(fragShader);
+        init(glContext);
+    </script>
 </body>
 
 </html>
