@@ -1,4 +1,5 @@
 function init(gl) {
+  const progStartTime = new Date().getTime();
   // If we don't have a GL context, give up now
   if (!gl) {
     alert(
@@ -54,12 +55,15 @@ function init(gl) {
     pillars3dShader.use(gl);
     gl.uniform2f(
       gl.getUniformLocation(pillars3dShader._ID, "resolution"),
-      800,
-      800
+      1280,
+      720
     );
+    const curTime = new Date().getTime();
+    console.log("current time is: ", curTime);
     gl.uniform1f(
       gl.getUniformLocation(pillars3dShader._ID, "time"),
-      new Date().getTime() / 1000000.0
+      //new Date().getTime() / 10000000000.0
+      (curTime - progStartTime) / 1000.0
     );
     gl.clear(gl.COLOR_BUFFER_BIT, gl.DEPTH_BUFFER_BIT);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
