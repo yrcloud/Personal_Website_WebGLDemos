@@ -84,8 +84,8 @@ function init(gl, mainCanvasDOM) {
     );
     gl.uniform2f(
       gl.getUniformLocation(pillars3dShader._ID, "canvasPixelSize"),
-      1280,
-      720
+      mainCanvasDOM.clientWidth,
+      mainCanvasDOM.clientHeight
     );
     const curTime = new Date().getTime();
     //console.log("current time is: ", curTime);
