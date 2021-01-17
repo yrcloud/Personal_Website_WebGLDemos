@@ -2,10 +2,12 @@ const fragShader = `#version 300 es
 precision highp float;
 
 out vec4 resultColor;
-uniform float time;
+in vec2 fScreenPos;
+uniform float iGlobalTime;
 uniform vec2 resolution;
+uniform vec2 canvasPixelSize;
 
-#define VIDEO_RECORDING
+//#define VIDEO_RECORDING
 
 // generate perlin noise in pixel shader, 
 // from I�igo Qu�lez(iq)'s shader demo "Elevated" https://www.shadertoy.com/view/MdX3Rr"
@@ -112,9 +114,9 @@ float pillarsDistanceField( in vec3 position )
 	float distanceField = min ( min( distanceMiddle, distanceBottom), distanceTop);
 
 #ifdef VIDEO_RECORDING
-	distanceField = 0.65 * distanceField + (sin(time/3.0/2.0) + 2.0)/2.0* displacement (position); 
+	distanceField = 0.65 * distanceField + (sin(iGlobalTime/3.0/2.0) + 2.0)/2.0* displacement (position); 
 #else
-	distanceField = 0.65 * distanceField + (sin(time/2.0) + 2.0)/2.0* displacement (position); 
+	distanceField = 0.65 * distanceField + (sin(iGlobalTime/2.0) + 2.0)/2.0* displacement (position); 
 #endif
 	return distanceField;
 }
@@ -192,9 +194,9 @@ float rayMarching( in vec3 rayOrigin, in vec3 rayDir )
 	//The accuracy has an impact on performance too
 	//Enlarge this value if you don't have a super GPU, but accuracy of the collision detection will compromise
     //usually happens near the silhouette 
-    float accuracy = 0.0001f;
+    float accuracy = 0.000001f;
     float distance = 1.0f;
-    float step = 0.1f;
+    float step = 0.01f;
     for( int i=0; i<160; i++ )
     {
         if( abs(distance)<accuracy||step>maximumDistance ) continue;//break;
@@ -208,54 +210,59 @@ float rayMarching( in vec3 rayOrigin, in vec3 rayDir )
 }
 
 //parallel sun light
-vec3 sunLightDir = normalize( vec3(0.3 ,0.6,0.7 ));
+vec3 sunLightDir = normalize( vec3(0.3, 0.6,0.7 ));
 
 void main()
 {
-    vec2 q = gl_FragCoord.xy / resolution;
-	vec2 p = -1.0 + 2.0*q;
-	p.x *= resolution.x / resolution.y;
+    //for testing
+    vec2 screen0to1 = (fScreenPos + vec2(1.0, 1.0))/2.0;
+    resultColor = vec4(screen0to1.x, 0.0f, 0.0f, 1.0);
+
+    //return;
+
+	vec2 p = fScreenPos;
+	p.x *= canvasPixelSize.x / canvasPixelSize.y;
 
 //camera movement	
 #ifdef VIDEO_RECORDING  //let the camera and lighting change slower
 	// the change happens every fram
 	// this applies to both skylight color and parallel light shading color
-	vec3 change = vec3(sin (time/3.0/3.0+3.0)/6.0, sin (time/5.0/3.0)/7.0, sin (time/8.0/3.0)/5.0);
+	vec3 change = vec3(sin (iGlobalTime/3.0/3.0+3.0)/6.0, sin (iGlobalTime/5.0/3.0)/7.0, sin (iGlobalTime/8.0/3.0)/5.0);
 
 	//starting position
 	vec3 rayOrigin = vec3 (10.0, 13.0, 0.0);
 	//move the camera
-	rayOrigin.y += 3.0* sin (time/3.0/3.0);
-	rayOrigin.z += 0.5*sin (2.0*time/8.0/3.0);
+	rayOrigin.y += 3.0* sin (iGlobalTime/3.0/3.0);
+	rayOrigin.z += 0.5*sin (2.0*iGlobalTime/8.0/3.0);
 	
 	//the looking direction changes more dramatic
 	vec3 lookAt = vec3 (0.0, 17.0, 0.0);
-	lookAt.y += 5.0* sin (time/5.0/3.0);
-	lookAt.x -= time/3.0;
-	lookAt.z += 16.0*sin (2.0*time/36.0/3.0);
-	rayOrigin.x -= time/3.0;
+	lookAt.y += 5.0* sin (iGlobalTime/5.0/3.0);
+	lookAt.x -= iGlobalTime/3.0;
+	lookAt.z += 16.0*sin (2.0*iGlobalTime/36.0/3.0);
+	rayOrigin.x -= iGlobalTime/3.0;
 #else
 	//same change applies here, with a faster speed
-	vec3 change = vec3(sin (time/3.0/3.0+3.0)/6.0, sin (time/5.0/3.0)/7.0, sin (time/8.0/3.0)/5.0);
+	vec3 change = vec3(sin (iGlobalTime/3.0/3.0+3.0)/6.0, sin (iGlobalTime/5.0/3.0)/7.0, sin (iGlobalTime/8.0/3.0)/5.0);
 	vec3 rayOrigin = vec3 (10.0, 13.0, 0.0);
-	rayOrigin.y += 3.0* sin (time/3.0);
-	rayOrigin.z += 0.5*sin (2.0*time/8.0);
+	rayOrigin.y += 3.0* sin (iGlobalTime/3.0);
+	rayOrigin.z += 0.5*sin (2.0*iGlobalTime/8.0);
 	
 	vec3 lookAt = vec3 (0.0, 17.0, 0.0);
-	lookAt.y += 5.0* sin (time/5.0);
-	lookAt.x -= time;
-	lookAt.z += 16.0*sin (2.0*time/36.0);
-	rayOrigin.x -= time;
+    lookAt.y += 5.0* sin (iGlobalTime/5.0);
+	lookAt.x -= iGlobalTime;
+	lookAt.z += 16.0*sin (2.0*iGlobalTime/36.0);
+	rayOrigin.x -= iGlobalTime;
 #endif
 	
     // camera rolling, 
     // created by iq in his shader demo	"volcanic" https://www.shadertoy.com/view/XsX3RB, 
-	float roll = 0.3*sin(1.0+0.07*time);
+	float roll = 0.3*sin(1.0+0.07*iGlobalTime);
 	vec3 cw = normalize(lookAt-rayOrigin);
 	vec3 cp = vec3(sin(roll), cos(roll),0.0);
 	vec3 cu = normalize(cross(cw,cp));
 	vec3 cv = normalize(cross(cu,cw));
-	vec3 rayDir = normalize( p.x*cu + p.y*cv + 2.1*cw );
+	vec3 rayDir = normalize( p.x*cu + p.y*cv + 2.0*cw );
 
     // color of the sky
 	vec3 pixelColor = vec3(0.32  , 0.36 , 0.4 ) - rayDir.y*0.35;

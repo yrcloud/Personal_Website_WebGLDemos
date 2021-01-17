@@ -14,21 +14,27 @@
 </head>
 
 <body>
-    <h1>TEST WEBSITE</h1>
-    <div>hellow world</div>
-    <ul>
-        <li><a href="https://www.google.com/">Go to Google but overflowed</a></li>
-        <li><a href="https://youtube.com">Go to Youtube</a></li>
-    </ul>
-    <canvas id="mainCanvas"></canvas>
-    Test plain JS!!
-    <script>
-        const mainCanvas = document.getElementById("mainCanvas");
-        const glContext = mainCanvas.getContext("webgl2");
-        console.log(glContext);
-        console.log(fragShader);
-        init(glContext);
-    </script>
+    <h1>Visualization Test</h1>
+    <!-- <div>hellow world</div> -->
+    <div id="mainInteractionArea">
+        <div id="upMenuDiv">
+            <ul id="navBar">
+                <li><a href="https://www.google.com/">Procedural 3D graphics WebGL demo</a></li>
+                <li><a href="https://youtube.com">Interactive Mesh Viewing WebGL demo</a></li>
+            </ul>
+        </div>
+        <div id="mainDisplayDiv">
+            <canvas id="mainCanvas"></canvas>
+        </div>
+        <script>
+            const mainCanvas = document.getElementById("mainCanvas");
+            const glContext = mainCanvas.getContext("webgl2");
+            console.log(glContext);
+            console.log(fragShader);
+            const mainCanvasDOM = document.getElementById("mainCanvas");
+            init(glContext, mainCanvasDOM);
+        </script>
+    </div>
 </body>
 
 </html>
