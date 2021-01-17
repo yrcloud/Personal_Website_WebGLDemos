@@ -4,7 +4,6 @@ precision highp float;
 out vec4 resultColor;
 in vec2 fScreenPos;
 uniform float iGlobalTime;
-uniform vec2 resolution;
 uniform vec2 canvasPixelSize;
 
 //#define VIDEO_RECORDING
@@ -116,7 +115,7 @@ float pillarsDistanceField( in vec3 position )
 #ifdef VIDEO_RECORDING
 	distanceField = 0.65 * distanceField + (sin(iGlobalTime/3.0/2.0) + 2.0)/2.0* displacement (position); 
 #else
-	distanceField = 0.65 * distanceField + (sin(iGlobalTime/2.0) + 2.0)/2.0* displacement (position); 
+	distanceField = 0.65 * distanceField + (sin(iGlobalTime) + 2.0)/2.0* displacement (position); 
 #endif
 	return distanceField;
 }
@@ -246,12 +245,12 @@ void main()
 	vec3 change = vec3(sin (iGlobalTime/3.0/3.0+3.0)/6.0, sin (iGlobalTime/5.0/3.0)/7.0, sin (iGlobalTime/8.0/3.0)/5.0);
 	vec3 rayOrigin = vec3 (10.0, 13.0, 0.0);
 	rayOrigin.y += 3.0* sin (iGlobalTime/3.0);
-	rayOrigin.z += 0.5*sin (2.0*iGlobalTime/8.0);
+	rayOrigin.z += 0.5*sin (2.0*iGlobalTime/4.0);
 	
 	vec3 lookAt = vec3 (0.0, 17.0, 0.0);
-    lookAt.y += 5.0* sin (iGlobalTime/5.0);
+	lookAt.y += 5.0* sin (iGlobalTime/2.0);
 	lookAt.x -= iGlobalTime;
-	lookAt.z += 16.0*sin (2.0*iGlobalTime/36.0);
+	lookAt.z += 16.0*sin (2.0*iGlobalTime/18.0);
 	rayOrigin.x -= iGlobalTime;
 #endif
 	

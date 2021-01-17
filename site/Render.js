@@ -77,11 +77,6 @@ function init(gl, mainCanvasDOM) {
     //   1280,
     //   720
     // );
-    gl.uniform2f(
-      gl.getUniformLocation(pillars3dShader._ID, "resolution"),
-      1280,
-      720
-    );
     console.log(
       "actual pixel size is: ",
       mainCanvasDOM.clientWidth,
