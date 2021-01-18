@@ -1,4 +1,6 @@
-function NavBarBehaviors() {
+import { MeshViewer } from "./RenderBunny.js";
+
+export function NavBarBehaviors() {
   this.installHandler = function (id, f) {
     const obj = document.getElementById(id);
     obj.addEventListener("click", f);

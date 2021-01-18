@@ -38,6 +38,13 @@ function Shader(gl, vsSource, fsSource) {
   }
   console.log("Shader program successfully created: ", this.shaderProgram);
   this._ID = this.shaderProgram;
+
+  this.cleanUp = function () {
+    this.gl.deleteProgram(this.shaderProgram);
+    this.gl.deleteShader(this.vertexShader);
+    this.gl.deleteShader(this.fragmentShader);
+    console.log("cleaned up shader");
+  };
 }
 
 Shader.prototype.use = function () {

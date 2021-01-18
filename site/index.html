@@ -7,13 +7,14 @@
     <!-- <script>
         alert("hello world");
     </script> -->
+    <script type="module" src="importation.js"></script>
     <script src="./Shader.js"></script>
     <script src="./pillars3dVS.js"></script>
     <script src="./pillars3dFS.js"></script>
     <script src="./RenderPillars.js"></script>
     <script src="./bunnyObjString.js"></script>
-    <script src="./RenderBunny.js"></script>
-    <script src="navBarBehavior.js"></script>
+    <script type="module" src="./RenderBunny.js"></script>
+    <script type="module" src="./navBarBehavior.js"></script>
 </head>
 
 <body>
@@ -28,7 +29,8 @@
         </div>
         <div id="mainDisplayDiv">
         </div>
-        <script>
+        <script type="module">
+            import {NavBarBehaviors} from "./navBarBehavior.js";
             const navBarBehaviors = new NavBarBehaviors();
             navBarBehaviors.installHandler(
                 "itemToLoadPillar", 

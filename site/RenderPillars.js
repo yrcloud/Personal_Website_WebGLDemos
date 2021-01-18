@@ -134,5 +134,6 @@ function Pillars(canvasDOM) {
     this.gl.deleteBuffer(this.vertexBuffer);
     this.gl.bindVertexArray(null);
     this.gl.deleteVertexArray(this.vao);
+    this.pillars3dShader.cleanUp();
   };
 }
