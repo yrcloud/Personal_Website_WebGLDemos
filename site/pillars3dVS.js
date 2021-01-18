@@ -1,4 +1,4 @@
-const vertexShader = `#version 300 es
+const pillarsVShader = `#version 300 es
 //precision highp float;
 out vec2 fScreenPos;
 layout (location=0) in vec3 vPos;

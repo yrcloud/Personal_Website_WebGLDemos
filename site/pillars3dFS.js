@@ -1,4 +1,4 @@
-const fragShader = `#version 300 es
+const pillarsFShader = `#version 300 es
 precision highp float;
 
 out vec4 resultColor;

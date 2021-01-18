@@ -10,7 +10,9 @@
     <script src="./Shader.js"></script>
     <script src="./pillars3dVS.js"></script>
     <script src="./pillars3dFS.js"></script>
-    <script src="./Render.js"></script>
+    <script src="./RenderPillars.js"></script>
+    <script src="./RenderBunny.js"></script>
+    <script src="navBarBehavior.js"></script>
 </head>
 
 <body>
@@ -19,20 +21,15 @@
     <div id="mainInteractionArea">
         <div id="upMenuDiv">
             <ul id="navBar">
-                <li><a href="https://www.google.com/">Procedural 3D graphics WebGL demo</a></li>
-                <li><a href="https://youtube.com">Interactive Mesh Viewing WebGL demo</a></li>
+                <li id="itemToLoadPillar">Procedural 3D graphics WebGL demo</li>
+                <li id="itemToLoadMesh">Interactive Mesh Viewing WebGL demo</li>
             </ul>
         </div>
         <div id="mainDisplayDiv">
-            <canvas id="mainCanvas"></canvas>
         </div>
         <script>
-            const mainCanvas = document.getElementById("mainCanvas");
-            const glContext = mainCanvas.getContext("webgl2");
-            console.log(glContext);
-            console.log(fragShader);
-            const mainCanvasDOM = document.getElementById("mainCanvas");
-            init(glContext, mainCanvasDOM);
+            installHandler("itemToLoadPillar", loadPillars);
+            installHandler("itemToLoadMesh", loadBunny);
         </script>
     </div>
 </body>
