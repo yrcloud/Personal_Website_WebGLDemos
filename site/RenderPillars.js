@@ -110,14 +110,29 @@ function Pillars(canvasDOM) {
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     gl.bindVertexArray(null);
     //console.log((new Date()).getTime());
-    requestAnimationFrame(this.render);
+    if (this.activeRendering) {
+      this.curRequestedFrame = requestAnimationFrame(this.render);
+    }
   }
 
   this.render = render.bind(this);
 
   this.startRendering = function () {
-    requestAnimationFrame(this.render);
+    this.activeRendering = true;
+    this.curRequestedFrame = requestAnimationFrame(this.render);
   };
 
   this.startRendering();
+
+  this.cleanGL = function () {
+    //stop requesting frames first
+    if (this.curRequestedFrame != null) {
+      cancelAnimationFrame(this.curRequestedFrame);
+    }
+    this.activeRendering = false;
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
+    this.gl.deleteBuffer(this.vertexBuffer);
+    this.gl.bindVertexArray(null);
+    this.gl.deleteVertexArray(this.vao);
+  };
 }

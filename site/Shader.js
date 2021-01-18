@@ -1,4 +1,5 @@
 function Shader(gl, vsSource, fsSource) {
+  this.gl = gl;
   function loadShader(gl, type, source) {
     const shader = gl.createShader(type);
 
@@ -21,24 +22,24 @@ function Shader(gl, vsSource, fsSource) {
     return shader;
   }
 
-  const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
-  const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
-  const shaderProgram = gl.createProgram();
-  gl.attachShader(shaderProgram, vertexShader);
-  gl.attachShader(shaderProgram, fragmentShader);
-  gl.linkProgram(shaderProgram);
-  if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+  this.vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+  this.fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+  this.shaderProgram = gl.createProgram();
+  gl.attachShader(this.shaderProgram, this.vertexShader);
+  gl.attachShader(this.shaderProgram, this.fragmentShader);
+  gl.linkProgram(this.shaderProgram);
+  if (!gl.getProgramParameter(this.shaderProgram, gl.LINK_STATUS)) {
     alert(
       "Unable to initialize the shader program: " +
-        gl.getProgramInfoLog(shaderProgram)
+        gl.getProgramInfoLog(this.shaderProgram)
     );
     this._ID = null;
     return;
   }
-  console.log("Shader program successfully created: ", shaderProgram);
-  this._ID = shaderProgram;
+  console.log("Shader program successfully created: ", this.shaderProgram);
+  this._ID = this.shaderProgram;
 }
 
-Shader.prototype.use = function (gl) {
-  gl.useProgram(this._ID);
+Shader.prototype.use = function () {
+  this.gl.useProgram(this._ID);
 };

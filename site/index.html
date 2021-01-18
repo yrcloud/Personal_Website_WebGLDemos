@@ -11,6 +11,7 @@
     <script src="./pillars3dVS.js"></script>
     <script src="./pillars3dFS.js"></script>
     <script src="./RenderPillars.js"></script>
+    <script src="./bunnyObjString.js"></script>
     <script src="./RenderBunny.js"></script>
     <script src="navBarBehavior.js"></script>
 </head>
@@ -28,8 +29,15 @@
         <div id="mainDisplayDiv">
         </div>
         <script>
-            installHandler("itemToLoadPillar", loadPillars);
-            installHandler("itemToLoadMesh", loadBunny);
+            const navBarBehaviors = new NavBarBehaviors();
+            navBarBehaviors.installHandler(
+                "itemToLoadPillar", 
+                navBarBehaviors.loadPillars.bind(navBarBehaviors)
+            );
+            navBarBehaviors.installHandler(
+                "itemToLoadMesh",
+                navBarBehaviors.loadBunny.bind(navBarBehaviors)
+            );
         </script>
     </div>
 </body>
