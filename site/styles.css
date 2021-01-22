@@ -16,37 +16,47 @@ h1 {
 }
 
 #upMenuDiv {
-  background-color: green;
+  background-color: rgb(16, 156, 16);
   float: left;
-  width: 100%;
-  margin-bottom: 15px;
+  width: 30%;
 }
 
 #mainDisplayDiv {
-  width: 100%;
-  clear: both;
+  float: left;
+  width: 70%;
+  border-style: solid;
+  border-color: darkgray;
+  height: 500px;
 }
 
 #navBar {
   list-style-type: none;
   font-size: large;
-  float: left;
+  padding: 0px;
+  margin: 10px;
 }
 
-#navBar > li {
-  float: left;
-  margin: 5px;
-  padding: 10px;
-}
-
-#navBar > li:hover {
+#navBar li:hover {
   background-color: whitesmoke;
 }
 
-#navBar li {
+#navBar li:active {
+  background-color: chartreuse;
+}
+
+#navBar li.unselected {
+  margin: 5px;
+  padding: 10px;
   cursor: pointer;
-  text-align: right;
   text-decoration: none;
+  color: black;
+}
+
+#navBar li.selected {
+  border-style: solid;
+  border-color: cornsilk;
+  border-width: 3px;
+  padding: 7px;
 }
 
 /* 
@@ -64,4 +74,5 @@ h1 {
   display: block;
   width: 600px;
   height: 500px;
+  border-style: solid;
 }

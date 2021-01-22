@@ -26,14 +26,24 @@ export function NavBarBehaviors() {
     }
   };
 
-  this.loadPillars = function () {
-    const newCanvas = this.cleanMainCanvas();
-    this.pillars = new Pillars(newCanvas);
+  this.adjustSelectedVis = function (target) {
+    for (const element of target.parentElement.children) {
+      element.className = element === target ? "selected" : "unselected";
+    }
+  };
+
+  this.loadPillars = function (event) {
+    console.log("event is: ", event);
+    if (event) this.adjustSelectedVis(event.target);
+    const canvas = this.cleanMainCanvas();
+    this.pillars = new Pillars(canvas);
     this.activeDrawName = "pillars";
   };
 
-  this.loadBunny = function () {
+  this.loadBunny = function (event) {
+    if (event) this.adjustSelectedVis(event.target);
     const newCanvas = this.cleanMainCanvas();
     this.meshViewer = new MeshViewer(newCanvas);
+    this.activeDrawName = "bunny";
   };
 }

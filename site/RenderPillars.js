@@ -80,7 +80,7 @@ function Pillars(canvasDOM) {
 
   function render(now) {
     const gl = this.gl;
-    console.log("this.gl in render function is: ", gl);
+    //console.log("this.gl in render function is: ", gl);
     gl.bindVertexArray(this.vao);
     this.pillars3dShader.use(gl);
     // gl.uniform2f(
@@ -88,11 +88,11 @@ function Pillars(canvasDOM) {
     //   1280,
     //   720
     // );
-    console.log(
-      "actual pixel size is: ",
-      this.canvasDOM.clientWidth,
-      this.canvasDOM.clientHeight
-    );
+    // console.log(
+    //   "actual pixel size is: ",
+    //   this.canvasDOM.clientWidth,
+    //   this.canvasDOM.clientHeight
+    // );
     gl.uniform2f(
       gl.getUniformLocation(this.pillars3dShader._ID, "canvasPixelSize"),
       this.canvasDOM.clientWidth,
@@ -130,6 +130,7 @@ function Pillars(canvasDOM) {
       cancelAnimationFrame(this.curRequestedFrame);
     }
     this.activeRendering = false;
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT, this.gl.DEPTH_BUFFER_BIT);
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
     this.gl.deleteBuffer(this.vertexBuffer);
     this.gl.bindVertexArray(null);

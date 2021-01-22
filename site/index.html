@@ -23,8 +23,8 @@
     <div id="mainInteractionArea">
         <div id="upMenuDiv">
             <ul id="navBar">
-                <li id="itemToLoadPillar">Procedural 3D graphics WebGL demo</li>
-                <li id="itemToLoadMesh">Interactive Mesh Viewing WebGL demo</li>
+                <li id="itemToLoadPillar" class = "selected">Procedural 3D graphics WebGL demo</li>
+                <li id="itemToLoadMesh" class = "unselected">Interactive Mesh Viewing WebGL demo (coming soon)</li>
             </ul>
         </div>
         <div id="mainDisplayDiv">
@@ -40,6 +40,7 @@
                 "itemToLoadMesh",
                 navBarBehaviors.loadBunny.bind(navBarBehaviors)
             );
+            navBarBehaviors.loadPillars();
         </script>
     </div>
 </body>
