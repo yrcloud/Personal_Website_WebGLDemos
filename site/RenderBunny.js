@@ -37,7 +37,13 @@ export function MeshViewer(canvasDOM) {
   }
   `;
 
+  this.render = render.bind(this);
+  this.startRendering = startRendering.bind(this);
+  this.cleanGL = cleanGL.bind(this);
+
+  //initialize and start rendering
   init.call(this);
+  this.startRendering();
 
   function parseObj(objStr) {
     const lines = objStr.split("\n");
@@ -149,13 +155,14 @@ export function MeshViewer(canvasDOM) {
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12);
     gl.enableVertexAttribArray(1);
+    //unbind vao and vbo
     gl.bindVertexArray(null);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
     const viewMat = mat4.create();
     mat4.lookAt(
       viewMat,
-      vec3.fromValues(0, 5, 5),
+      vec3.fromValues(0, 0.3, 0.2),
       vec3.fromValues(0, 0, 0),
       vec3.fromValues(0, 1, 0)
     );
@@ -174,5 +181,33 @@ export function MeshViewer(canvasDOM) {
       false,
       perspectiveMat
     );
+  }
+
+  function render(now) {
+    const gl = this.gl;
+    gl.bindVertexArray(this.vao);
+    gl.useProgram(this.plainShader.shaderProgram);
+    gl.clear(gl.COLOR_BUFFER_BIT, gl.DEPTH_BUFFER_BIT);
+    gl.drawArrays(gl.TRIANGLES, 0, this.processedMesh.length / 6);
+    gl.bindVertexArray(null);
+  }
+
+  function startRendering() {
+    console.log("start rendering in meshViewer");
+    this.activeRendering = true;
+    this.curRequestedFrame = requestAnimationFrame(this.render);
+  }
+
+  function cleanGL() {
+    if (this.curRequestedFrame != null) {
+      cancelAnimationFrame(this.curRequestedFrame);
+    }
+    this.activeRendering = false;
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT, this.gl.DEPTH_BUFFER_BIT);
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
+    this.gl.deleteBuffer(this.vbo);
+    this.gl.bindVertexArray(null);
+    this.gl.deleteVertexArray(this.vao);
+    this.plainShader.cleanUp();
   }
 }

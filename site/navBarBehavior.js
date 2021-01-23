@@ -9,6 +9,8 @@ export function NavBarBehaviors() {
   this.cleanGL = function (activeDrawName) {
     if (activeDrawName === "pillars") {
       this.pillars.cleanGL();
+    } else if (activeDrawName === "bunny") {
+      this.meshViewer.cleanGL();
     }
   };
 
@@ -33,7 +35,6 @@ export function NavBarBehaviors() {
   };
 
   this.loadPillars = function (event) {
-    console.log("event is: ", event);
     if (event) this.adjustSelectedVis(event.target);
     const canvas = this.cleanMainCanvas();
     this.pillars = new Pillars(canvas);
