@@ -23,17 +23,23 @@ export function MeshViewer(canvasDOM) {
   uniform mat4 objMat;
   uniform mat4 viewMat;
   uniform mat4 perspectiveMat;
+
   out vec3 normal;
+  out vec4 fragPosWld;
+  out vec3 fCameraPosWld;
 
   void main() {
       gl_Position = perspectiveMat * viewMat * objMat * vec4(vPos, 1.0f);
-      normal = vNormal;
+      normal = mat3(objMat) * vNormal;
+      fragPosWld = objMat * vec4(vPos, 1.0f);
   }
   `;
 
   const fs = `#version 300 es
   precision highp float;
   in vec3 normal;
+  in vec4 fragPosWld;
+  uniform vec3 cameraPosWld;
   out vec4 finalColor;
 
   struct DirLight
@@ -45,35 +51,35 @@ export function MeshViewer(canvasDOM) {
   };
   uniform DirLight g_dirLight;
 
-  highp vec3 GetDirLight (DirLight light, vec3 normal, vec3 viewDir) 
+  vec3 GetDirLighting (DirLight light, vec3 normal, vec3 viewDir) 
   {
     //diffuse first
     vec3 lightDir = normalize(-light._dir);
     float diffuse = clamp (dot(lightDir, normal), 0.0f, 1.0f);
     vec3 diffuseResult = diffuse * light._diffuse;
 
-        /*
     //specular next
-    highp vec3 reflectDir = reflect (-lightDir, normal);
-    highp float specular = clamp (dot(reflectDir, viewDir), 0.0f, 1.0f);
-    specular = pow (specular, mat._shininess); 
-    highp vec3 specularResult = specular * light._specular * simTextColor;
-        //vec3(texture (mat._specularSampler2D, textureCoord));
+    vec3 reflectDir = normalize(reflect (-lightDir, normal));
+    float specular = clamp (dot(reflectDir, viewDir), 0.0f, 1.0f);
+    specular = pow (specular, 16.0); //32 is shininess
+    vec3 specularResult = specular * light._specular;
 
+    /*
     //ambient last
-    highp vec3 ambientResult = light._ambient * simTextColor; 
+    vec3 ambientResult = light._ambient * simTextColor; 
         //vec3(texture (mat._diffuseSampler2D, textureCoord));
 
     //return (diffuseResult + specularResult + ambientResult);
     return diffuseResult + ambientResult;
     */
-    return diffuseResult;
+    return specularResult;
   }
 
 
   void main(){
     //finalColor = vec4(g_dirLight._specular, 1.0);
-    finalColor = vec4(GetDirLight(g_dirLight, normal, vec3(0.0, 0.0, 0.0)), 1.0);
+    //finalColor = vec4(GetDirLighting(g_dirLight, normal, normalize(cameraPosWld-vec3(fragPosWld))), 1.0);
+    finalColor = vec4(normal, 1.0);
   }
   `;
 
@@ -207,11 +213,14 @@ export function MeshViewer(canvasDOM) {
     this.rotatedYAngle = 0.0;
 
     const viewMat = mat4.create();
+    this.cameraFocusPosWld = vec3.fromValues(0, 0.2, 0.15);
+    this.cameraPosWld = vec3.fromValues(0.0, 0.1, 0.0);
+    this.cameraUp = vec3.fromValues(0.0, 1.0, 0.0);
     mat4.lookAt(
       viewMat,
-      vec3.fromValues(0, 0.2, 0.15),
-      vec3.fromValues(0, 0.1, 0),
-      vec3.fromValues(0, 1, 0)
+      this.cameraFocusPosWld,
+      this.cameraPosWld,
+      this.cameraUp
     );
     //console.log("viewMat is: ", viewMat);
     const perspectiveMat = mat4.create();
@@ -241,7 +250,7 @@ export function MeshViewer(canvasDOM) {
     console.log("render");
     gl.useProgram(this.plainShader.shaderProgram);
     const dirLight = {
-      dir: vec3.fromValues(0.0, -1.0, -0.5),
+      dir: vec3.fromValues(0.0, 0.0, -1.0),
       ambient: vec3.fromValues(0.1, 0.1, 0.1),
       diffuse: vec3.fromValues(0.8, 0.9, 0.5),
       specular: vec3.fromValues(1.0, 1.0, 1.0),
@@ -278,6 +287,28 @@ export function MeshViewer(canvasDOM) {
       dirLight.specular[0],
       dirLight.specular[1],
       dirLight.specular[2]
+    );
+
+    //view matrix and pass it to shader
+    const viewMat = mat4.create();
+    mat4.lookAt(
+      viewMat,
+      this.cameraFocusPosWld,
+      this.cameraPosWld,
+      this.cameraUp
+    );
+    gl.uniformMatrix4fv(
+      gl.getUniformLocation(this.plainShader.shaderProgram, "viewMat"),
+      false,
+      viewMat
+    );
+
+    //pass camera world position to frag shader
+    gl.uniform3f(
+      gl.getUniformLocation(this.plainShader.shaderProgram, "cameraPosWld"),
+      this.cameraPosWld[0],
+      this.cameraPosWld[1],
+      this.cameraPosWld[2]
     );
 
     //compose the rotation based on mouse input
