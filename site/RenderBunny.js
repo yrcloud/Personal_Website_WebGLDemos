@@ -72,14 +72,13 @@ export function MeshViewer(canvasDOM) {
     //return (diffuseResult + specularResult + ambientResult);
     return diffuseResult + ambientResult;
     */
-    return specularResult;
+    return diffuseResult + specularResult;
   }
 
 
   void main(){
-    //finalColor = vec4(g_dirLight._specular, 1.0);
-    //finalColor = vec4(GetDirLighting(g_dirLight, normal, normalize(cameraPosWld-vec3(fragPosWld))), 1.0);
-    finalColor = vec4(normal, 1.0);
+    finalColor = vec4(GetDirLighting(g_dirLight, normal, normalize(cameraPosWld-vec3(fragPosWld))), 1.0);
+    //finalColor = vec4(normal, 1.0);
   }
   `;
 
@@ -213,13 +212,13 @@ export function MeshViewer(canvasDOM) {
     this.rotatedYAngle = 0.0;
 
     const viewMat = mat4.create();
-    this.cameraFocusPosWld = vec3.fromValues(0, 0.2, 0.15);
-    this.cameraPosWld = vec3.fromValues(0.0, 0.1, 0.0);
+    this.cameraFocusPosWld = vec3.fromValues(0, 0.1, 0);
+    this.cameraPosWld = vec3.fromValues(0.0, 0.2, 0.2);
     this.cameraUp = vec3.fromValues(0.0, 1.0, 0.0);
     mat4.lookAt(
       viewMat,
-      this.cameraFocusPosWld,
       this.cameraPosWld,
+      this.cameraFocusPosWld,
       this.cameraUp
     );
     //console.log("viewMat is: ", viewMat);
@@ -250,7 +249,7 @@ export function MeshViewer(canvasDOM) {
     console.log("render");
     gl.useProgram(this.plainShader.shaderProgram);
     const dirLight = {
-      dir: vec3.fromValues(0.0, 0.0, -1.0),
+      dir: vec3.fromValues(0.0, -1.0, -1.0),
       ambient: vec3.fromValues(0.1, 0.1, 0.1),
       diffuse: vec3.fromValues(0.8, 0.9, 0.5),
       specular: vec3.fromValues(1.0, 1.0, 1.0),
@@ -293,8 +292,8 @@ export function MeshViewer(canvasDOM) {
     const viewMat = mat4.create();
     mat4.lookAt(
       viewMat,
-      this.cameraFocusPosWld,
       this.cameraPosWld,
+      this.cameraFocusPosWld,
       this.cameraUp
     );
     gl.uniformMatrix4fv(
