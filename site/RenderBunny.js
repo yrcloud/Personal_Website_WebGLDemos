@@ -179,7 +179,7 @@ export function MeshViewer(canvasDOM) {
     return (Math.PI / 180) * degree;
   }
 
-  function createSkyBoxTexture(gl) {
+  async function createSkyBoxTexture(gl) {
     const textureFaceTargets = [
       gl.TEXTURE_CUBE_MAP_POSITIVE_X,
       gl.TEXTURE_CUBE_MAP_NEGATIVE_X,
@@ -200,27 +200,31 @@ export function MeshViewer(canvasDOM) {
     const textureID = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_CUBE_MAP, textureID);
 
-    async function loadOneFaceImg(index) {
+    async function loadOneFaceImg(index, resultContainer) {
       const loadNewImagePromise = new Promise(function (resolve, reject) {
         const imgDOM = document.createElement("img");
         imgDOM.src = imageFileNames[index];
-        imgDOM.onload = () => {
-          resolve(imgDOM);
-        };
+        // imgDOM.onload = () => {
+        //   resolve(imgDOM);
+        // };
+        setTimeout(() => resolve(imgDOM), 1000); //testing await
       });
-      const result = await loadNewImagePromise;
+      const resultImgDOM = await loadNewImagePromise;
       console.log(
         "image No. " + index + " loaded. Result is ",
-        result,
+        resultImgDOM,
         ", with width and heigh of ",
-        result.width,
-        result.height
+        resultImgDOM.width,
+        resultImgDOM.height
       );
+      resultContainer.push(resultImgDOM);
     }
 
+    const imgDOMs = [];
     for (let i = 0; i < imageFileNames.length; i++) {
-      loadOneFaceImg(i);
+      await loadOneFaceImg(i, imgDOMs);
     }
+    console.log("imgDOMs are: ", imgDOMs);
   }
 
   function init() {
