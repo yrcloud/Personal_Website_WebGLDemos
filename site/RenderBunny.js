@@ -179,8 +179,53 @@ export function MeshViewer(canvasDOM) {
     return (Math.PI / 180) * degree;
   }
 
+  function createSkyBoxTexture(gl) {
+    const textureFaceTargets = [
+      gl.TEXTURE_CUBE_MAP_POSITIVE_X,
+      gl.TEXTURE_CUBE_MAP_NEGATIVE_X,
+      gl.TEXTURE_CUBE_MAP_POSITIVE_Y,
+      gl.TEXTURE_CUBE_MAP_NEGATIVE_Y,
+      gl.TEXTURE_CUBE_MAP_POSITIVE_Z,
+      gl.TEXTURE_CUBE_MAP_NEGATIVE_Z,
+    ];
+
+    const imageFileNames = [
+      "./images/skybox/right.jpg",
+      "./images/skybox/left.jpg",
+      "./images/skybox/top.jpg",
+      "./images/skybox/bottom.jpg",
+      "./images/skybox/back.jpg",
+      "./images/skybox/front.jpg",
+    ];
+    const textureID = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, textureID);
+
+    async function loadOneFaceImg(index) {
+      const loadNewImagePromise = new Promise(function (resolve, reject) {
+        const imgDOM = document.createElement("img");
+        imgDOM.src = imageFileNames[index];
+        imgDOM.onload = () => {
+          resolve(imgDOM);
+        };
+      });
+      const result = await loadNewImagePromise;
+      console.log(
+        "image No. " + index + " loaded. Result is ",
+        result,
+        ", with width and heigh of ",
+        result.width,
+        result.height
+      );
+    }
+
+    for (let i = 0; i < imageFileNames.length; i++) {
+      loadOneFaceImg(i);
+    }
+  }
+
   function init() {
     const gl = this.gl;
+    createSkyBoxTexture(gl);
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
     gl.cullFace(gl.BACK);
@@ -246,7 +291,7 @@ export function MeshViewer(canvasDOM) {
 
   function render(now) {
     const gl = this.gl;
-    console.log("render");
+    //console.log("render");
     gl.useProgram(this.plainShader.shaderProgram);
     const dirLight = {
       dir: vec3.fromValues(0.0, -1.0, -1.0),
@@ -311,7 +356,7 @@ export function MeshViewer(canvasDOM) {
     );
 
     //compose the rotation based on mouse input
-    console.log("this.rotatedYAngle is: ", this.rotatedYAngle);
+    //console.log("this.rotatedYAngle is: ", this.rotatedYAngle);
     const objMat = mat4.create();
     mat4.fromRotation(
       objMat,
