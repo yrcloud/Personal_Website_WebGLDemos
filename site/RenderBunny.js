@@ -82,14 +82,19 @@ export function MeshViewer(canvasDOM) {
   }
   `;
 
+  //exposed 4 functions, note that init is async, need to call with await
   this.render = render.bind(this);
   this.startRendering = startRendering.bind(this);
   this.cleanGL = cleanGL.bind(this);
+  this.init = init.bind(this);
 
   //initialize and start rendering
-  init.call(this);
-  this.startRendering();
+  // this.init();
+  // this.startRendering();
 
+  ////////////////////////////////////////////////////////////
+  ///////////// utility functions ///////////////////////////
+  ////////////////////////////////////////////////////////////
   function parseObj(objStr) {
     const lines = objStr.split("\n");
     lines.forEach((element) => {});
@@ -197,17 +202,24 @@ export function MeshViewer(canvasDOM) {
       "./images/skybox/back.jpg",
       "./images/skybox/front.jpg",
     ];
+
+    //create the texture, bind it to cube map and set up parameters
     const textureID = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_CUBE_MAP, textureID);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
+    //connect the images to the faces of the cubemap texture
     async function loadOneFaceImg(index, resultContainer) {
       const loadNewImagePromise = new Promise(function (resolve, reject) {
         const imgDOM = document.createElement("img");
         imgDOM.src = imageFileNames[index];
-        // imgDOM.onload = () => {
-        //   resolve(imgDOM);
-        // };
-        setTimeout(() => resolve(imgDOM), 1000); //testing await
+        imgDOM.onload = () => {
+          resolve(imgDOM);
+        };
+        //setTimeout(() => resolve(imgDOM), 1000); //testing await
       });
       const resultImgDOM = await loadNewImagePromise;
       console.log(
@@ -218,18 +230,41 @@ export function MeshViewer(canvasDOM) {
         resultImgDOM.height
       );
       resultContainer.push(resultImgDOM);
+      return resultImgDOM; 
+      //it seems that if it's resolved, it's returning the datra
+      //if it's pending, it's returning a Promise 
     }
 
     const imgDOMs = [];
     for (let i = 0; i < imageFileNames.length; i++) {
-      await loadOneFaceImg(i, imgDOMs);
+      const asynResult = await loadOneFaceImg(i, imgDOMs);
+      //console.log("asyncResult is: ", asynResult);
     }
     console.log("imgDOMs are: ", imgDOMs);
+
+    imgDOMs.forEach((item, index) => {
+      gl.texImage2D(
+        textureFaceTargets[index],
+        0,
+        gl.RGBA,
+        imgDOMs[index].width,
+        imgDOMs[index].height,
+        0,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        imgDOMs[index]
+      );
+    });
+    return textureID;
   }
 
-  function init() {
+  ////////////////////////////////////////////////////////////
+  ///////////// exposed key functions ///////////////////////////
+  ////////////////////////////////////////////////////////////
+  async function init() {
     const gl = this.gl;
-    createSkyBoxTexture(gl);
+    const cubeMapTexture = await createSkyBoxTexture(gl);
+    console.log("right after function call of createSkyBoxTexture");
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
     gl.cullFace(gl.BACK);
