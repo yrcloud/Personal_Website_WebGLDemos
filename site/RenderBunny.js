@@ -40,6 +40,7 @@ export function MeshViewer(canvasDOM) {
   in vec3 normal;
   in vec4 fragPosWld;
   uniform vec3 cameraPosWld;
+  uniform samplerCube skybox;
   out vec4 finalColor;
 
   struct DirLight
@@ -77,8 +78,8 @@ export function MeshViewer(canvasDOM) {
 
 
   void main(){
-    finalColor = vec4(GetDirLighting(g_dirLight, normal, normalize(cameraPosWld-vec3(fragPosWld))), 1.0);
-    //finalColor = vec4(normal, 1.0);
+    //finalColor = vec4(GetDirLighting(g_dirLight, normal, normalize(cameraPosWld-vec3(fragPosWld))), 1.0);
+    finalColor = vec4(texture(skybox, normal).rgb, 1.0);
   }
   `;
 
@@ -255,6 +256,7 @@ export function MeshViewer(canvasDOM) {
         imgDOMs[index]
       );
     });
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
     return textureID;
   }
 
@@ -263,7 +265,7 @@ export function MeshViewer(canvasDOM) {
   ////////////////////////////////////////////////////////////
   async function init() {
     const gl = this.gl;
-    const cubeMapTexture = await createSkyBoxTexture(gl);
+    this.cubeMapTexture = await createSkyBoxTexture(gl);
     console.log("right after function call of createSkyBoxTexture");
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
@@ -409,6 +411,7 @@ export function MeshViewer(canvasDOM) {
     );
 
     gl.bindVertexArray(this.vao);
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture); //bind the cubeTexture
 
     gl.clear(gl.COLOR_BUFFER_BIT, gl.DEPTH_BUFFER_BIT);
     gl.drawArrays(gl.TRIANGLES, 0, this.processedMesh.length / 6);
