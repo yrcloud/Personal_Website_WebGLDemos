@@ -11,6 +11,8 @@ import {
   vec4,
 } from "./toji-gl-matrix-v3.3.0-35-g21b745f/toji-gl-matrix-21b745f/src/index.js";
 
+import {skyboxVertices} from "./SkyboxGeo.js";
+
 export function MeshViewer(canvasDOM) {
   const BYTE_SIZE = 4;
   this.gl = canvasDOM.getContext("webgl2");
@@ -260,6 +262,61 @@ export function MeshViewer(canvasDOM) {
     return textureID;
   }
 
+  function setupSkyboxRender(gl) {
+    console.log("Entered setupSkyboxRender");
+    //create shader to render skybox
+    const skyboxVertexShader = `#version 300 es
+    layout (location=0) in vec3 vPos;
+    uniform mat4 viewMat;
+    uniform mat4 projMat;
+    out vec3 v2fPos;
+    void main()
+    {
+      mat4 rotOnlyViewMat = mat4(mat3(viewMat));
+      gl_Position = projMat * rotOnlyViewMat * vec4(vPos, 1.0);
+      v2fPos = vPos;
+    }
+    `;
+    const skyboxFragmentShader = `#version 300 es
+    precision highp float;
+    in vec3 v2fPos;
+    uniform samplerCube skybox;
+    out vec4 finalColor;
+    void main()
+    {
+      finalColor = vec4(texture(skybox, v2fPos).rgb, 1.0);
+      //finalColor = vec4(1.0, 0.0, 0.0, 1.0);
+    }
+    `;
+    this.skyboxShader = new Shader(gl, skyboxVertexShader, skyboxFragmentShader);
+    //pass sky box vertices to GPU buffer
+    this.vboSkybox = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vboSkybox);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(skyboxVertices), gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+    //create vao for skybox
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vboSkybox);
+    this.vaoSkybox = gl.createVertexArray();
+    gl.bindVertexArray(this.vaoSkybox);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 12, 0);
+    gl.bindVertexArray(null);
+
+    //pass projection matrix to shader
+    gl.useProgram(this.skyboxShader.shaderProgram);
+    const perspectiveMat = mat4.create();
+    mat4.perspective(perspectiveMat, degreeToRadian(90), 1, 0.01, 50);
+    gl.uniformMatrix4fv(
+      gl.getUniformLocation(this.skyboxShader.shaderProgram, "projMat"),
+      false,
+      perspectiveMat
+    );
+    gl.useProgram(null);
+
+    console.log("Finishing setupSkyboxRender");
+  }
+
   ////////////////////////////////////////////////////////////
   ///////////// exposed key functions ///////////////////////////
   ////////////////////////////////////////////////////////////
@@ -267,14 +324,15 @@ export function MeshViewer(canvasDOM) {
     const gl = this.gl;
     this.cubeMapTexture = await createSkyBoxTexture(gl);
     console.log("right after function call of createSkyBoxTexture");
-    gl.enable(gl.CULL_FACE);
+    setupSkyboxRender.call(this, gl);
+    // gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
-    gl.cullFace(gl.BACK);
+    // gl.cullFace(gl.BACK);
     this.plainShader = new Shader(gl, vs, fs);
     this.meshData = parseObj(bunnyMeshDataObj);
     this.processedMesh = processMesh(this.meshData);
-    this.vbo = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+    this.vboBunny = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vboBunny);
     gl.bufferData(
       gl.ARRAY_BUFFER,
       new Float32Array(this.processedMesh),
@@ -282,9 +340,9 @@ export function MeshViewer(canvasDOM) {
     );
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-    this.vao = gl.createVertexArray();
-    gl.bindVertexArray(this.vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+    this.vaoBunny = gl.createVertexArray();
+    gl.bindVertexArray(this.vaoBunny);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vboBunny);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12);
@@ -333,6 +391,34 @@ export function MeshViewer(canvasDOM) {
   function render(now) {
     const gl = this.gl;
     //console.log("render");
+
+    gl.clear(gl.COLOR_BUFFER_BIT, gl.DEPTH_BUFFER_BIT);
+    ///////////////////////////////////////////////
+    //////// first draw the skybox ////////////////
+    ///////////////////////////////////////////////
+    gl.useProgram(this.skyboxShader.shaderProgram);
+    const viewMat = mat4.create();
+    mat4.lookAt(
+      viewMat,
+      this.cameraPosWld,
+      this.cameraFocusPosWld,
+      this.cameraUp
+    );
+    gl.uniformMatrix4fv(
+      gl.getUniformLocation(this.skyboxShader.shaderProgram, "viewMat"),
+      false,
+      viewMat
+    );
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture);
+    //gl.bindBuffer(gl.ARRAY_BUFFER, this.vboSkybox);
+    gl.bindVertexArray(this.vaoSkybox);
+    gl.drawArrays(gl.TRIANGLES, 0, skyboxVertices.length / 3);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    gl.bindVertexArray(null);
+
+    ///////////////////////////////////////////////
+    //////// draw the bunny ////////////////
+    ///////////////////////////////////////////////
     gl.useProgram(this.plainShader.shaderProgram);
     const dirLight = {
       dir: vec3.fromValues(0.0, -1.0, -1.0),
@@ -375,13 +461,7 @@ export function MeshViewer(canvasDOM) {
     );
 
     //view matrix and pass it to shader
-    const viewMat = mat4.create();
-    mat4.lookAt(
-      viewMat,
-      this.cameraPosWld,
-      this.cameraFocusPosWld,
-      this.cameraUp
-    );
+
     gl.uniformMatrix4fv(
       gl.getUniformLocation(this.plainShader.shaderProgram, "viewMat"),
       false,
@@ -410,10 +490,10 @@ export function MeshViewer(canvasDOM) {
       objMat
     );
 
-    gl.bindVertexArray(this.vao);
+    gl.bindVertexArray(this.vaoBunny);
     gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture); //bind the cubeTexture
 
-    gl.clear(gl.COLOR_BUFFER_BIT, gl.DEPTH_BUFFER_BIT);
+    //gl.clear(gl.COLOR_BUFFER_BIT, gl.DEPTH_BUFFER_BIT);
     gl.drawArrays(gl.TRIANGLES, 0, this.processedMesh.length / 6);
     gl.bindVertexArray(null);
 
@@ -433,9 +513,12 @@ export function MeshViewer(canvasDOM) {
     this.activeRendering = false;
     this.gl.clear(this.gl.COLOR_BUFFER_BIT, this.gl.DEPTH_BUFFER_BIT);
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
-    this.gl.deleteBuffer(this.vbo);
+    this.gl.deleteBuffer(this.vboBunny);
+    this.gl.deleteBuffer(this.vboSkybox);
     this.gl.bindVertexArray(null);
-    this.gl.deleteVertexArray(this.vao);
+    this.gl.deleteVertexArray(this.vaoBunny);
+    this.gl.deleteVertexArray(this.vaoSkybox);
     this.plainShader.cleanUp();
+    this.skyboxShader.cleanUp();
   }
 }
