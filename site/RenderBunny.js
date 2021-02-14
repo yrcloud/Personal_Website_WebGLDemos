@@ -109,7 +109,9 @@ export function MeshViewer(canvasDOM) {
   }
 
   function setupMainMeshRender(gl) {
-    //the main shader
+    ////////////////////////////////////
+    ///////// the main shader //////////
+    ////////////////////////////////////
     const vs = `#version 300 es
     layout (location=0) in vec3 vPos;
     layout (location=1) in vec3 vNormal;
@@ -190,6 +192,9 @@ export function MeshViewer(canvasDOM) {
     }
     `;
 
+    ////////////////////////////////////////////////////////////
+    ///////////// Process the input obj mesh ///////////////////
+    ////////////////////////////////////////////////////////////
     function parseObj(objStr) {
       const lines = objStr.split("\n");
       lines.forEach((element) => {});
@@ -214,7 +219,7 @@ export function MeshViewer(canvasDOM) {
       console.log("vertices are", vertices);
       console.log("faces are: ", faces);
   
-      const normals = [];
+      const faceNormals = [];
       for (let i = 0; i < faces.length / 3; i++) {
         const v0i = faces[3 * i] - 1;
         const v1i = faces[3 * i + 1] - 1;
@@ -245,15 +250,54 @@ export function MeshViewer(canvasDOM) {
         vec3.cross(normal, e0, e1);
         //console.log("normal is: ", normal);
         vec3.normalize(normal, normal);
-        normals.push(...normal);
+        faceNormals.push(...normal);
       }
-      console.log("normals are: ", normals);
+      console.log("faceNormals are: ", faceNormals);
   
       return {
         vertices: vertices,
-        faces: faces,
-        normals: normals,
+        faces: faces, //starts from 1 instead of 0
+        faceNormals: faceNormals,
       };
+    }
+
+    function getVertexNormals(meshData) {
+      //somehow the line below does not work
+      //const vertexNormals = (new Array(meshData.vertices.length / 3)).fill([]);
+      const vertexNormals = (new Array(meshData.vertices.length / 3)).fill(null).map(()=>[]);
+      console.log("Empty vertex normals are: ", vertexNormals);
+      //first record all normals of adjacent faces for each vertex 
+      for (let i = 0; i < meshData.faceNormals.length / 3; i++) {//for each face normal
+        //this is the normal of the face
+        const normal = [
+          meshData.faceNormals[3 * i],
+          meshData.faceNormals[3 * i + 1],
+          meshData.faceNormals[3 * i + 2],
+        ];
+        //these are the face's 3 vertices' indices
+        const vIndices = [
+          meshData.faces[3 * i] - 1,
+          meshData.faces[3 * i + 1] - 1,
+          meshData.faces[3 * i + 2] - 1,
+        ];
+        //record this normal for each vertex of that face
+        vIndices.forEach((vIndex) => {
+          vertexNormals[vIndex].push(normal);
+        });
+      }
+      console.log("Raw vertexNormals are: ", vertexNormals);
+      const avgNormals = [];
+      //then calculate the average
+      vertexNormals.forEach((normals)=>{
+        const avgNormal = vec3.fromValues(0.0, 0.0, 0.0);
+        normals.forEach((normal)=>{
+          vec3.add(avgNormal, avgNormal, normal);
+        });
+        vec3.normalize(avgNormal, avgNormal);
+        avgNormals.push(...avgNormal);
+      });
+      console.log("processed avgNormals are:", avgNormals);
+      return avgNormals;
     }
   
     function processMesh(meshData) {
@@ -266,9 +310,9 @@ export function MeshViewer(canvasDOM) {
           meshData.vertices[3 * vertexIndex + 2],
         ];
         const normalIndex = Math.floor(index / 3);
-        vertexPlusNormal.push(meshData.normals[3 * normalIndex]);
-        vertexPlusNormal.push(meshData.normals[3 * normalIndex + 1]);
-        vertexPlusNormal.push(meshData.normals[3 * normalIndex + 2]);
+        vertexPlusNormal.push(meshData.faceNormals[3 * normalIndex]);
+        vertexPlusNormal.push(meshData.faceNormals[3 * normalIndex + 1]);
+        vertexPlusNormal.push(meshData.faceNormals[3 * normalIndex + 2]);
         result.push(...vertexPlusNormal);
       });
       console.log("processed mesh is: ", result);
@@ -277,6 +321,7 @@ export function MeshViewer(canvasDOM) {
 
     this.plainShader = new Shader(gl, vs, fs);
     this.meshData = parseObj(bunnyMeshDataObj);
+    this.vertexNormals = getVertexNormals(this.meshData);
     this.processedMesh = processMesh(this.meshData);
     this.vboBunny = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vboBunny);
@@ -391,7 +436,7 @@ export function MeshViewer(canvasDOM) {
   }
 
   ////////////////////////////////////////////////////////////
-  ///////////// exposed key functions ///////////////////////////
+  ///////////// exposed key functions ////////////////////////
   ////////////////////////////////////////////////////////////
   async function init() {
     const gl = this.gl;
