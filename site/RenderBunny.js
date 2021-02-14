@@ -119,12 +119,11 @@ export function MeshViewer(canvasDOM) {
   
     out vec3 normal;
     out vec4 fragPosWld;
-    out vec3 fCameraPosWld;
   
     void main() {
-        gl_Position = perspectiveMat * viewMat * objMat * vec4(vPos, 1.0f);
-        normal = mat3(objMat) * vNormal;
-        fragPosWld = objMat * vec4(vPos, 1.0f);
+      gl_Position = perspectiveMat * viewMat * objMat * vec4(vPos, 1.0f);
+      normal = mat3(objMat) * vNormal;
+      fragPosWld = objMat * vec4(vPos, 1.0f);
     }
     `;
   
@@ -168,11 +167,26 @@ export function MeshViewer(canvasDOM) {
       */
       return diffuseResult + specularResult;
     }
-  
-  
-    void main(){
-      //finalColor = vec4(GetDirLighting(g_dirLight, normal, normalize(cameraPosWld-vec3(fragPosWld))), 1.0);
-      finalColor = vec4(texture(skybox, normal).rgb, 1.0);
+
+    vec4 skyBoxReflection ()
+    {
+      vec3 viewDir = normalize(vec3(fragPosWld) - cameraPosWld);
+      vec3 toSkyBoxDir = reflect(viewDir, normal);
+      return vec4(texture(skybox, toSkyBoxDir).rgb, 1.0);
+    }
+
+    vec4 skyBoxRefraction ()
+    {
+      vec3 viewDir = normalize(vec3(fragPosWld) - cameraPosWld);
+      vec3 toSkyBoxDir = refract(viewDir, normal, 1.00 / 1.52);
+      return vec4(texture(skybox, toSkyBoxDir).rgb, 1.0);
+    }
+
+    void main()
+    {
+      vec4 dirLightResult = vec4(GetDirLighting(g_dirLight, normal, normalize(cameraPosWld-vec3(fragPosWld))), 1.0);
+      //finalColor = vec4(texture(skybox, normal).rgb, 1.0);
+      finalColor = 0.0 * dirLightResult + 1.0 * skyBoxReflection() + 0.0 * skyBoxRefraction();
     }
     `;
 
@@ -332,7 +346,7 @@ export function MeshViewer(canvasDOM) {
     void main()
     {
       mat4 rotOnlyViewMat = mat4(mat3(viewMat));
-      gl_Position = projMat * rotOnlyViewMat * vec4(vPos, 1.0);
+      gl_Position = projMat * vec4(vPos, 1.0);
       v2fPos = vPos;
     }
     `;
