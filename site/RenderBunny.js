@@ -210,7 +210,7 @@ export function MeshViewer(canvasDOM) {
             vertices.push(...line.slice(1).map((item) => Number(item)));
             break;
           case "f":
-            faces.push(...line.slice(1).map((item) => Number(item)));
+            faces.push(...line.slice(1).map((item) => Number(item-1)));
             break;
           default:
             return;
@@ -221,9 +221,9 @@ export function MeshViewer(canvasDOM) {
   
       const faceNormals = [];
       for (let i = 0; i < faces.length / 3; i++) {
-        const v0i = faces[3 * i] - 1;
-        const v1i = faces[3 * i + 1] - 1;
-        const v2i = faces[3 * i + 2] - 1;
+        const v0i = faces[3 * i];
+        const v1i = faces[3 * i + 1];
+        const v2i = faces[3 * i + 2];
         const v0 = vec3.fromValues(
           vertices[v0i * 3],
           vertices[v0i * 3 + 1],
@@ -276,9 +276,9 @@ export function MeshViewer(canvasDOM) {
         ];
         //these are the face's 3 vertices' indices
         const vIndices = [
-          meshData.faces[3 * i] - 1,
-          meshData.faces[3 * i + 1] - 1,
-          meshData.faces[3 * i + 2] - 1,
+          meshData.faces[3 * i],
+          meshData.faces[3 * i + 1],
+          meshData.faces[3 * i + 2],
         ];
         //record this normal for each vertex of that face
         vIndices.forEach((vIndex) => {
@@ -303,7 +303,7 @@ export function MeshViewer(canvasDOM) {
     function processMesh(meshData) {
       const result = [];
       meshData.faces.forEach((vIndex, index) => {
-        const vertexIndex = vIndex - 1;
+        const vertexIndex = vIndex;
         const vertexPlusNormal = [
           meshData.vertices[3 * vertexIndex],
           meshData.vertices[3 * vertexIndex + 1],
@@ -321,8 +321,10 @@ export function MeshViewer(canvasDOM) {
 
     this.plainShader = new Shader(gl, vs, fs);
     this.meshData = parseObj(bunnyMeshDataObj);
-    this.vertexNormals = getVertexNormals(this.meshData);
-    this.processedMesh = processMesh(this.meshData);
+    //per vertex normal, as an avg of adjacent faces
+    this.vertexNormals = getVertexNormals(this.meshData); 
+    //vertex + normal that's the same as face normal
+    this.processedMesh = processMesh(this.meshData); 
     this.vboBunny = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vboBunny);
     gl.bufferData(
