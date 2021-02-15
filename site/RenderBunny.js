@@ -20,7 +20,7 @@ export function MeshViewer(canvasDOM) {
   this.cleanGL = cleanGL.bind(this);
   this.init = init.bind(this);  //async
 
-  const BYTE_SIZE = 4;
+  const FLOAT_BYTE_SIZE = 4; 
   this.gl = canvasDOM.getContext("webgl2");
   this.canvasDOM = canvasDOM;
   console.log("gl context in MeshViewer constructor is: ", this.gl);
@@ -188,7 +188,7 @@ export function MeshViewer(canvasDOM) {
     {
       vec4 dirLightResult = vec4(GetDirLighting(g_dirLight, normal, normalize(cameraPosWld-vec3(fragPosWld))), 1.0);
       //finalColor = vec4(texture(skybox, normal).rgb, 1.0);
-      finalColor = 0.0 * dirLightResult + 1.0 * skyBoxReflection() + 0.0 * skyBoxRefraction();
+      finalColor = 0.2 * dirLightResult + 0.8 * skyBoxReflection() + 0.0 * skyBoxRefraction();
     }
     `;
 
@@ -327,23 +327,58 @@ export function MeshViewer(canvasDOM) {
     this.processedMesh = processMesh(this.meshData); 
     this.vboBunny = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vboBunny);
+    //allocate memory 
     gl.bufferData(
       gl.ARRAY_BUFFER,
-      new Float32Array(this.processedMesh),
+      (this.meshData.vertices.length + this.vertexNormals.length) * FLOAT_BYTE_SIZE,
       gl.STATIC_DRAW
     );
+    //copy data
+    gl.bufferSubData(
+      gl.ARRAY_BUFFER,
+      0,
+      new Float32Array(this.meshData.vertices),
+      0
+    );
+    gl.bufferSubData(
+      gl.ARRAY_BUFFER,
+      this.meshData.vertices.length * FLOAT_BYTE_SIZE,
+      new Float32Array(this.vertexNormals),
+      0
+    )
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+    //element array buffer
+    this.eaboBunny = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboBunny);
+    gl.bufferData(
+      gl.ELEMENT_ARRAY_BUFFER,
+      new Uint16Array(this.meshData.faces),
+      gl.STATIC_DRAW
+    );
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
     this.vaoBunny = gl.createVertexArray();
     gl.bindVertexArray(this.vaoBunny);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vboBunny);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboBunny);
+    //attribute 0 is for vertex positions
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 3 * FLOAT_BYTE_SIZE, 0);
     gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12);
+    //attribute 1 is for normals
+    gl.vertexAttribPointer(
+      1,
+      3,
+      gl.FLOAT, 
+      false,
+      3 * FLOAT_BYTE_SIZE,
+      this.meshData.vertices.length * FLOAT_BYTE_SIZE
+    );
     gl.enableVertexAttribArray(1);
     //unbind vao and vbo
     gl.bindVertexArray(null);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
     const objMat = mat4.create();
     mat4.fromRotation(objMat, 0, vec3.fromValues(0.0, 1.0, 1.0));
@@ -351,7 +386,7 @@ export function MeshViewer(canvasDOM) {
 
     const viewMat = mat4.create();
     this.cameraFocusPosWld = vec3.fromValues(0, 0.1, 0);
-    this.cameraPosWld = vec3.fromValues(0.0, 0.15, 0.15);
+    this.cameraPosWld = vec3.fromValues(0.0, 0.15, 0.18);
     this.cameraUp = vec3.fromValues(0.0, 1.0, 0.0);
     mat4.lookAt(
       viewMat,
@@ -556,9 +591,11 @@ export function MeshViewer(canvasDOM) {
     gl.bindVertexArray(this.vaoBunny);
     gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture); //bind the cubeTexture
 
-    //gl.clear(gl.COLOR_BUFFER_BIT, gl.DEPTH_BUFFER_BIT);
-    gl.drawArrays(gl.TRIANGLES, 0, this.processedMesh.length / 6);
+    //gl.drawArrays(gl.TRIANGLES, 0, this.processedMesh.length / 6);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboBunny);
+    gl.drawElements(gl.TRIANGLES, this.meshData.faces.length, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(null);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
     this.curRequestedFrame = requestAnimationFrame(this.render);
   }
