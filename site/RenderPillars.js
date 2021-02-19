@@ -2,9 +2,14 @@ function Pillars(canvasDOM) {
   this.gl = canvasDOM.getContext("webgl2");
   this.canvasDOM = canvasDOM;
   console.log("gl context in Pillars constructor is: ", this.gl);
-  init.call(this);
 
-  function init() {
+  //expose the 4 key functions
+  this.init = init.bind(this);
+  this.render = render.bind(this);
+  this.startRendering = startRendering.bind(this);
+  this.cleanGL = cleanGL.bind(this);
+
+  async function init() {
     console.log("this in init is: ", this);
     const gl = this.gl;
     this.progStartTime = new Date().getTime();
@@ -115,16 +120,12 @@ function Pillars(canvasDOM) {
     }
   }
 
-  this.render = render.bind(this);
-
-  this.startRendering = function () {
+  function startRendering() {
     this.activeRendering = true;
     this.curRequestedFrame = requestAnimationFrame(this.render);
   };
 
-  this.startRendering();
-
-  this.cleanGL = function () {
+  function cleanGL() {
     //stop requesting frames first
     if (this.curRequestedFrame != null) {
       cancelAnimationFrame(this.curRequestedFrame);

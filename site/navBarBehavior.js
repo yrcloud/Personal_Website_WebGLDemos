@@ -18,7 +18,7 @@ export function NavBarBehaviors() {
     } else {
       const newCanvas = document.createElement("canvas");
       newCanvas.id = "mainCanvas";
-      document.getElementById("mainDisplayDiv").append(newCanvas);
+      document.getElementById("leftControlPanel").after(newCanvas);
       console.log("newly created canvas is: ", newCanvas);
       return newCanvas;
     }
@@ -30,17 +30,21 @@ export function NavBarBehaviors() {
     }
   };
 
-  this.loadPillars = function (event) {
+  this.loadPillars = async function (event) {
     if (event) this.adjustSelectedVis(event.target);
     const canvas = this.cleanMainCanvas();
     this.curRenderObj = new Pillars(canvas);
+    await this.curRenderObj.init();
+    this.curRenderObj.startRendering();
     this.renderTarget = "Pillars";
   };
 
-  this.loadBunny = function (event) {
+  this.loadBunny = async function (event) {
     if (event) this.adjustSelectedVis(event.target);
     const newCanvas = this.cleanMainCanvas();
     this.curRenderObj = new MeshViewer(newCanvas);
+    await this.curRenderObj.init();
+    this.curRenderObj.startRendering();
     this.renderTarget = "MeshViewer";
   };
 
