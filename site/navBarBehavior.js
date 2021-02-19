@@ -18,7 +18,7 @@ export function NavBarBehaviors() {
     } else {
       const newCanvas = document.createElement("canvas");
       newCanvas.id = "mainCanvas";
-      document.getElementById("mainDisplayDiv").append(newCanvas);
+      document.getElementById("leftControlPanel").after(newCanvas);
       console.log("newly created canvas is: ", newCanvas);
       return newCanvas;
     }

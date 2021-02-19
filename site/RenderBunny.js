@@ -21,6 +21,9 @@ export function MeshViewer(canvasDOM) {
   this.init = init.bind(this);  //async
 
   const FLOAT_BYTE_SIZE = 4; 
+  const NEAR_CLIP_PLANE_DIST = 0.01;
+  const FAR_CLIP_PLANE_DIST = 50.0;
+  const FIELD_OF_VIEW_DEGREES = 90.0;
   this.gl = canvasDOM.getContext("webgl2");
   this.canvasDOM = canvasDOM;
   console.log("gl context in MeshViewer constructor is: ", this.gl);
@@ -48,8 +51,8 @@ export function MeshViewer(canvasDOM) {
       "./images/skybox/left.jpg",
       "./images/skybox/top.jpg",
       "./images/skybox/bottom.jpg",
-      "./images/skybox/back.jpg",
       "./images/skybox/front.jpg",
+      "./images/skybox/back.jpg",
     ];
 
     //create the texture, bind it to cube map and set up parameters
@@ -117,13 +120,13 @@ export function MeshViewer(canvasDOM) {
     layout (location=1) in vec3 vNormal;
     uniform mat4 objMat;
     uniform mat4 viewMat;
-    uniform mat4 perspectiveMat;
+    uniform mat4 projMat;
   
     out vec3 normal;
     out vec4 fragPosWld;
   
     void main() {
-      gl_Position = perspectiveMat * viewMat * objMat * vec4(vPos, 1.0f);
+      gl_Position = projMat * viewMat * objMat * vec4(vPos, 1.0f);
       normal = mat3(objMat) * vNormal;
       fragPosWld = objMat * vec4(vPos, 1.0f);
     }
@@ -188,7 +191,7 @@ export function MeshViewer(canvasDOM) {
     {
       vec4 dirLightResult = vec4(GetDirLighting(g_dirLight, normal, normalize(cameraPosWld-vec3(fragPosWld))), 1.0);
       //finalColor = vec4(texture(skybox, normal).rgb, 1.0);
-      finalColor = 0.2 * dirLightResult + 0.8 * skyBoxReflection() + 0.0 * skyBoxRefraction();
+      finalColor = 0.1 * dirLightResult + 0.9 * skyBoxReflection() + 0.0 * skyBoxRefraction();
     }
     `;
 
@@ -386,7 +389,7 @@ export function MeshViewer(canvasDOM) {
 
     const viewMat = mat4.create();
     this.cameraFocusPosWld = vec3.fromValues(0, 0.1, 0);
-    this.cameraPosWld = vec3.fromValues(0.0, 0.15, 0.18);
+    this.cameraPosWld = vec3.fromValues(0.0, 0.15, 0.15);
     this.cameraUp = vec3.fromValues(0.0, 1.0, 0.0);
     mat4.lookAt(
       viewMat,
@@ -395,8 +398,14 @@ export function MeshViewer(canvasDOM) {
       this.cameraUp
     );
 
-    const perspectiveMat = mat4.create();
-    mat4.perspective(perspectiveMat, degreeToRadian(90), 1, 0.01, 50);
+    const projMat = mat4.create();
+    mat4.perspective(
+      projMat,
+      degreeToRadian(FIELD_OF_VIEW_DEGREES), 
+      this.canvasDOM.clientWidth / this.canvasDOM.clientHeight,
+      NEAR_CLIP_PLANE_DIST,
+      FAR_CLIP_PLANE_DIST
+    );
 
     gl.useProgram(this.plainShader.shaderProgram);
     gl.uniformMatrix4fv(
@@ -411,9 +420,9 @@ export function MeshViewer(canvasDOM) {
       viewMat
     );
     gl.uniformMatrix4fv(
-      gl.getUniformLocation(this.plainShader.shaderProgram, "perspectiveMat"),
+      gl.getUniformLocation(this.plainShader.shaderProgram, "projMat"),
       false,
-      perspectiveMat
+      projMat
     );
   }
 
@@ -428,7 +437,7 @@ export function MeshViewer(canvasDOM) {
     void main()
     {
       mat4 rotOnlyViewMat = mat4(mat3(viewMat));
-      gl_Position = projMat * vec4(vPos, 1.0);
+      gl_Position = projMat * viewMat * vec4(vPos, 1.0);
       v2fPos = vPos;
     }
     `;
@@ -460,12 +469,18 @@ export function MeshViewer(canvasDOM) {
 
     //pass projection matrix to shader
     gl.useProgram(this.skyboxShader.shaderProgram);
-    const perspectiveMat = mat4.create();
-    mat4.perspective(perspectiveMat, degreeToRadian(90), 1, 0.01, 50);
+    const projMat = mat4.create();
+    mat4.perspective(
+      projMat,
+      degreeToRadian(FIELD_OF_VIEW_DEGREES),
+      this.canvasDOM.clientWidth / this.canvasDOM.clientHeight,
+      NEAR_CLIP_PLANE_DIST,
+      FAR_CLIP_PLANE_DIST
+    );
     gl.uniformMatrix4fv(
       gl.getUniformLocation(this.skyboxShader.shaderProgram, "projMat"),
       false,
-      perspectiveMat
+      projMat
     );
     gl.useProgram(null);
 
@@ -484,17 +499,19 @@ export function MeshViewer(canvasDOM) {
     // gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
     // gl.cullFace(gl.BACK);
+    //gl.viewport(0, 0, this.canvasDOM.clientWidth, this.canvasDOM.clientHeight);
   }
 
   function render(now) {
     const gl = this.gl;
     //console.log("render");
-
+    console.log("canvasDOM with and height:", this.canvasDOM.clientWidth, this.canvasDOM.clientHeight);
+    //gl.viewport(0, 0, this.canvasDOM.clientWidth, this.canvasDOM.clientHeight);
     gl.clear(gl.COLOR_BUFFER_BIT, gl.DEPTH_BUFFER_BIT);
+
     ///////////////////////////////////////////////
-    //////// first draw the skybox ////////////////
+    //////// Common data ////////////////
     ///////////////////////////////////////////////
-    gl.useProgram(this.skyboxShader.shaderProgram);
     const viewMat = mat4.create();
     mat4.lookAt(
       viewMat,
@@ -502,10 +519,28 @@ export function MeshViewer(canvasDOM) {
       this.cameraFocusPosWld,
       this.cameraUp
     );
+    const projMat = mat4.create();
+    mat4.perspective(
+      projMat,
+      degreeToRadian(FIELD_OF_VIEW_DEGREES), 
+      this.canvasDOM.clientWidth / this.canvasDOM.clientHeight,
+      NEAR_CLIP_PLANE_DIST,
+      FAR_CLIP_PLANE_DIST
+    );
+
+    ///////////////////////////////////////////////
+    //////// first draw the skybox ////////////////
+    ///////////////////////////////////////////////
+    gl.useProgram(this.skyboxShader.shaderProgram);
     gl.uniformMatrix4fv(
       gl.getUniformLocation(this.skyboxShader.shaderProgram, "viewMat"),
       false,
       viewMat
+    );
+    gl.uniformMatrix4fv(
+      gl.getUniformLocation(this.skyboxShader.shaderProgram, "projMat"),
+      false,
+      projMat
     );
     gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture);
     //gl.bindBuffer(gl.ARRAY_BUFFER, this.vboSkybox);
@@ -558,12 +593,17 @@ export function MeshViewer(canvasDOM) {
       dirLight.specular[2]
     );
 
-    //view matrix and pass it to shader
-
+    //Pass shared view matrix to shader
     gl.uniformMatrix4fv(
       gl.getUniformLocation(this.plainShader.shaderProgram, "viewMat"),
       false,
       viewMat
+    );
+    //Pass shared projection matrix to shader
+    gl.uniformMatrix4fv(
+      gl.getUniformLocation(this.plainShader.shaderProgram, "projMat"),
+      false,
+      projMat
     );
 
     //pass camera world position to frag shader
