@@ -138,6 +138,7 @@ export function MeshViewer(canvasDOM) {
     in vec4 fragPosWld;
     uniform vec3 cameraPosWld;
     uniform samplerCube skybox;
+    uniform bool skyboxRenderToggle;
     out vec4 finalColor;
   
     struct DirLight
@@ -191,7 +192,10 @@ export function MeshViewer(canvasDOM) {
     {
       vec4 dirLightResult = vec4(GetDirLighting(g_dirLight, normal, normalize(cameraPosWld-vec3(fragPosWld))), 1.0);
       //finalColor = vec4(texture(skybox, normal).rgb, 1.0);
-      finalColor = 0.1 * dirLightResult + 0.9 * skyBoxReflection() + 0.0 * skyBoxRefraction();
+      if (skyboxRenderToggle)
+        finalColor = 0.1 * dirLightResult + 0.9 * skyBoxReflection() + 0.0 * skyBoxRefraction();
+      else
+        finalColor = dirLightResult;
     }
     `;
 
@@ -487,13 +491,18 @@ export function MeshViewer(canvasDOM) {
     console.log("Finishing setupSkyboxRender");
   }
 
+  function setupControls() {
+    this.skyboxRenderToggle = false;
+  }
+
   ////////////////////////////////////////////////////////////
   ///////////// exposed key functions ////////////////////////
   ////////////////////////////////////////////////////////////
   async function init() {
     const gl = this.gl;
+    setupControls.call(this);
     this.cubeMapTexture = await createSkyBoxTexture(gl);
-    console.log("right after function call of createSkyBoxTexture");
+    //console.log("right after function call of createSkyBoxTexture");
     setupSkyboxRender.call(this, gl);
     setupMainMeshRender.call(this, gl);
     // gl.enable(gl.CULL_FACE);
@@ -531,23 +540,25 @@ export function MeshViewer(canvasDOM) {
     ///////////////////////////////////////////////
     //////// first draw the skybox ////////////////
     ///////////////////////////////////////////////
-    gl.useProgram(this.skyboxShader.shaderProgram);
-    gl.uniformMatrix4fv(
-      gl.getUniformLocation(this.skyboxShader.shaderProgram, "viewMat"),
-      false,
-      viewMat
-    );
-    gl.uniformMatrix4fv(
-      gl.getUniformLocation(this.skyboxShader.shaderProgram, "projMat"),
-      false,
-      projMat
-    );
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture);
-    //gl.bindBuffer(gl.ARRAY_BUFFER, this.vboSkybox);
-    gl.bindVertexArray(this.vaoSkybox);
-    gl.drawArrays(gl.TRIANGLES, 0, skyboxVertices.length / 3);
-    gl.bindBuffer(gl.ARRAY_BUFFER, null);
-    gl.bindVertexArray(null);
+    if (this.skyboxRenderToggle) {
+      gl.useProgram(this.skyboxShader.shaderProgram);
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(this.skyboxShader.shaderProgram, "viewMat"),
+        false,
+        viewMat
+      );
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(this.skyboxShader.shaderProgram, "projMat"),
+        false,
+        projMat
+      );
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture);
+      //gl.bindBuffer(gl.ARRAY_BUFFER, this.vboSkybox);
+      gl.bindVertexArray(this.vaoSkybox);
+      gl.drawArrays(gl.TRIANGLES, 0, skyboxVertices.length / 3);
+      gl.bindBuffer(gl.ARRAY_BUFFER, null);
+      gl.bindVertexArray(null);
+    }
 
     ///////////////////////////////////////////////
     //////// draw the bunny ////////////////
@@ -627,6 +638,11 @@ export function MeshViewer(canvasDOM) {
       false,
       objMat
     );
+
+    gl.uniform1i(
+      gl.getUniformLocation(this.plainShader.shaderProgram, "skyboxRenderToggle"),
+      this.skyboxRenderToggle
+    )
 
     gl.bindVertexArray(this.vaoBunny);
     gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture); //bind the cubeTexture
