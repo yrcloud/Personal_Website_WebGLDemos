@@ -61,14 +61,32 @@ h1 {
   border-color: darkgray;
   display: flex;
   flex-direction: row;
-  height: 600px;
+  
+}
+
+#mainDisplayDiv[loadedApp="Pillars"] {
+  justify-content: space-around;
+  height: 400px;
+}
+
+#mainDisplayDiv[loadedApp="MeshViewer"] {
+  justify-content: flex-start;
+  background-color:teal;
+  height: 500px;
 }
 
 #mainCanvas {
   padding-left: 0;
   padding-right: 0;
-  flex: 1 1 auto;
   border-style: solid;
+}
+
+#mainCanvas[loadedApp="Pillars"] {
+  width: 400px;
+}
+
+#mainCanvas[loadedApp="MeshViewer"] {
+  flex: 1 1 auto;
 }
 
 #leftControlPanel {
