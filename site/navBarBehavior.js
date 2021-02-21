@@ -55,16 +55,8 @@ export function NavBarBehaviors() {
       case "MeshViewer":
         const HTMLToInsert = `<div id="leftControlPanel">
         <div id="skyBoxToggleDiv">
-            <input type="checkbox" id="skyBoxToggleCheckbox">
-            <label for="skyBoxToggleCheckbox">SkyBox Reflection</label>
-        </div>
-        <div id="dummyToggleDiv0">
-            <input type="checkbox" id="dummyToggleCheckbox0">
-            <label for="dummyToggleCheckbox0">Dummy control 0</label>
-        </div>
-        <div id="dummyToggleDiv1">
-            <input type="checkbox" id="dummyToggleCheckbox1">
-            <label for="dummyToggleCheckbox1">Dummy control 1</label>
+            <input type="checkbox" id="skyBoxCheckbox">
+            <label for="skyBoxCheckbox">SkyBox Reflection</label>
         </div>
     </div>`;
         document.getElementById("leftControlPanel")?.remove();
@@ -72,6 +64,10 @@ export function NavBarBehaviors() {
           "afterbegin",
           HTMLToInsert
         )
+        const skyboxCheckbox = document.querySelector("#skyBoxCheckbox");
+        skyboxCheckbox.addEventListener("mouseup", (event)=>{
+          alert(skyboxCheckbox.checked);
+        });
         break;
       case "Pillars":
         document.getElementById("leftControlPanel").remove();
@@ -79,7 +75,6 @@ export function NavBarBehaviors() {
       default:
         break;
     }
-
   }
 
   this.installInteractionOnCanvas = function () {
