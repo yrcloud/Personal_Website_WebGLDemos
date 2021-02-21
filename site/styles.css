@@ -59,18 +59,37 @@ h1 {
 #mainDisplayDiv {
   border-style: solid;
   border-color: darkgray;
-  display: grid;
-  grid-template-columns: 20% 80%;
-  grid-template-rows: auto;
+  display: flex;
+  flex-direction: row;
+  height: 600px;
 }
 
 #mainCanvas {
   padding-left: 0;
   padding-right: 0;
-  margin-left: auto;
-  margin-right: auto;
-  /* display: block; */
-  width: 100%;
-  height: 600px;
+  flex: 1 1 auto;
   border-style: solid;
+}
+
+#leftControlPanel {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  flex: 0 1 300px;
+}
+
+#leftControlPanel > div {
+  display: flex;
+  justify-content:flex-start;
+  align-items: center;
+  background-color:burlywood;
+  height: 50px;
+  margin: 5px;
+  padding: 5px;
+  border: 1px solid black;
+}
+
+#leftControlPanel input {
+  margin: 5px;
 }

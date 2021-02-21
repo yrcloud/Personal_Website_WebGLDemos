@@ -37,6 +37,7 @@ export function NavBarBehaviors() {
     await this.curRenderObj.init();
     this.curRenderObj.startRendering();
     this.renderTarget = "Pillars";
+    this.adjustControlLayout("Pillars");
   };
 
   this.loadBunny = async function (event) {
@@ -46,7 +47,40 @@ export function NavBarBehaviors() {
     await this.curRenderObj.init();
     this.curRenderObj.startRendering();
     this.renderTarget = "MeshViewer";
+    this.adjustControlLayout("MeshViewer");
   };
+
+  this.adjustControlLayout = function (app) {
+    switch (app) {
+      case "MeshViewer":
+        const HTMLToInsert = `<div id="leftControlPanel">
+        <div id="skyBoxToggleDiv">
+            <input type="checkbox" id="skyBoxToggleCheckbox">
+            <label for="skyBoxToggleCheckbox">SkyBox Reflection</label>
+        </div>
+        <div id="dummyToggleDiv0">
+            <input type="checkbox" id="dummyToggleCheckbox0">
+            <label for="dummyToggleCheckbox0">Dummy control 0</label>
+        </div>
+        <div id="dummyToggleDiv1">
+            <input type="checkbox" id="dummyToggleCheckbox1">
+            <label for="dummyToggleCheckbox1">Dummy control 1</label>
+        </div>
+    </div>`;
+        document.getElementById("leftControlPanel")?.remove();
+        document.querySelector("#mainDisplayDiv").insertAdjacentHTML(
+          "afterbegin",
+          HTMLToInsert
+        )
+        break;
+      case "Pillars":
+        document.getElementById("leftControlPanel").remove();
+        break;
+      default:
+        break;
+    }
+
+  }
 
   this.installInteractionOnCanvas = function () {
     const canvasDOM = document.getElementById("mainCanvas");

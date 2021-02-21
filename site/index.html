@@ -17,7 +17,7 @@
 </head>
 
 <body>
-    <h1>Visualization Test</h1>
+    <h1>WebGL Visualization Tests</h1>
     <!-- <div>hellow world</div> -->
     <div id="mainInteractionArea">
         <div id="upMenuDiv">
@@ -27,8 +27,24 @@
             </ul>
         </div>
         <div id="mainDisplayDiv">
-            <div id="leftControlPanel"></div>
-            <div id="rightControlPanel"></div>
+            <div id="leftControlPanel">
+                <div id="skyBoxToggleDiv">
+                    <input type="checkbox" id="skyBoxToggleCheckbox">
+                    <label for="skyBoxToggleCheckbox">SkyBox Reflection</label>
+                </div>
+                <div id="dummyToggleDiv0">
+                    <input type="checkbox" id="dummyToggleCheckbox0">
+                    <label for="dummyToggleCheckbox0">Dummy control 0</label>
+                </div>
+                <div id="dummyToggleDiv1">
+                    <input type="checkbox" id="dummyToggleCheckbox1">
+                    <label for="dummyToggleCheckbox1">Dummy control 1</label>
+                </div>
+                <div id="dummyToggleDiv2">
+                    <input type="checkbox" id="dummyToggleCheckbox2">
+                    <label for="dummyToggleCheckbox2">Dummy control 2</label>
+                </div>
+            </div>
         </div>
         <script type="module">
             import {NavBarBehaviors} from "./navBarBehavior.js";
