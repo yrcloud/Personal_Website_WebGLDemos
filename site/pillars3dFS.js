@@ -189,14 +189,14 @@ float rayMarching( in vec3 rayOrigin, in vec3 rayDir )
 	//the following two parameters will determin the largest distance and shortest "sensitivity" of our ray marching
 	//The maximuDistance is crucial to the performance!!!!!!!!
 	//lower this value to 30 or enven 20 if you are using a moderate GPU!!!!! well...you will have less pillars...
-	float maximumDistance = 30.0f;
+	float maximumDistance = 25.0f;
 	//The accuracy has an impact on performance too
 	//Enlarge this value if you don't have a super GPU, but accuracy of the collision detection will compromise
     //usually happens near the silhouette 
-    float accuracy = 0.000001f;
+    float accuracy = 0.0001f;
     float distance = 1.0f;
-    float step = 0.01f;
-    for( int i=0; i<160; i++ )
+    float step = 0.1f;
+    for( int i=0; i<100; i++ )
     {
         if( abs(distance)<accuracy||step>maximumDistance ) continue;//break;
 	    distance = pillarsDistanceField( rayOrigin+rayDir*step );

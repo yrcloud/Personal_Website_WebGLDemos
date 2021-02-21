@@ -17,6 +17,8 @@ export function NavBarBehaviors() {
       return canvasDOM;
     } else {
       const newCanvas = document.createElement("canvas");
+      // newCanvas.width = newCanvas.clientWidth;
+      // newCanvas.height = newCanvas.clientHeight;
       newCanvas.id = "mainCanvas";
       document.getElementById("leftControlPanel").after(newCanvas);
       console.log("newly created canvas is: ", newCanvas);
@@ -51,6 +53,8 @@ export function NavBarBehaviors() {
   };
 
   this.adjustControlLayout = function (app) {
+    const canvasDOM = document.querySelector("#mainCanvas");
+    const mainDisplayDivDOM = document.querySelector("#mainDisplayDiv");
     switch (app) {
       case "MeshViewer":
         const HTMLToInsert = `<div id="leftControlPanel">
@@ -59,19 +63,26 @@ export function NavBarBehaviors() {
             <label for="skyBoxCheckbox">SkyBox Reflection</label>
         </div>
     </div>`;
+        //remove and insert elements
         document.getElementById("leftControlPanel")?.remove();
         document.querySelector("#mainDisplayDiv").insertAdjacentHTML(
           "afterbegin",
           HTMLToInsert
         )
+        //install handler
         const skyboxCheckbox = document.querySelector("#skyBoxCheckbox");
         skyboxCheckbox.addEventListener("mouseup", (event)=>{
           //alert(skyboxCheckbox.checked);
           this.curRenderObj.skyboxRenderToggle = !skyboxCheckbox.checked;
         });
+        //set attributes
+        mainDisplayDivDOM.setAttribute("loadedApp", "MeshViewer");
+        canvasDOM.setAttribute("loadedApp", "MeshViewer");
         break;
       case "Pillars":
         document.getElementById("leftControlPanel").remove();
+        mainDisplayDivDOM.setAttribute("loadedApp", "Pillars");
+        canvasDOM.setAttribute("loadedApp", "Pillars");
         break;
       default:
         break;

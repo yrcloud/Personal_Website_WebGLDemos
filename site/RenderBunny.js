@@ -24,6 +24,8 @@ export function MeshViewer(canvasDOM) {
   const NEAR_CLIP_PLANE_DIST = 0.01;
   const FAR_CLIP_PLANE_DIST = 50.0;
   const FIELD_OF_VIEW_DEGREES = 90.0;
+  const SHADOW_MAP_WIDTH = 1024;
+  const SHADOW_MAP_HEIGHT = 1024;
   this.gl = canvasDOM.getContext("webgl2");
   this.canvasDOM = canvasDOM;
   console.log("gl context in MeshViewer constructor is: ", this.gl);
@@ -325,13 +327,73 @@ export function MeshViewer(canvasDOM) {
       console.log("processed mesh is: ", result);
       return result;
     }  
+    ////////////////////////////////////////////////////////////
+    ///////////// Set up shadow map render /////////////////////
+    ////////////////////////////////////////////////////////////
+    function setupShadowMap(gl) {
+      const ext = gl.getExtension("WEBGL_depth_texture");
+      if (!ext) {
+        alert("Need WEBGL_depth_texture");
+        return;
+      }
+      //create the frame buffer object
+      this.shadowMapFBO = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowMapFBO);
 
+      //create and set up the texture
+      this.shadowMapTextureSunLight = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.shadowMapTextureSunLight);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.DEPTH_COMPONENT,
+        SHADOW_MAP_WIDTH,
+        SHADOW_MAP_HEIGHT,
+        0,
+        gl.DEPTH_COMPONENT,
+        gl.UNSIGNED_INT,
+        null
+      );
+      //attach texture as depth component
+      gl.framebufferTexture2D(
+        gl.FRAMEBUFFER,
+        gl.DEPTH_ATTACHMENT,
+        gl.TEXTURE_2D,
+        this.shadowMapTextureSunLight,
+        0
+      );
+      //tell WebGL we don't need color attachment
+      gl.drawBuffers([gl.NONE]);
+      gl.readBuffer(gl.NONE);
+
+      console.log(
+        "shadowmap framebuffer status: ",
+        gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE
+      );
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+
+    ////////////////////////////////////////////////////////////
+    ///////////// Set up main mesh render //////////////////////
+    ////////////////////////////////////////////////////////////
     this.plainShader = new Shader(gl, vs, fs);
     this.meshData = parseObj(bunnyMeshDataObj);
     //per vertex normal, as an avg of adjacent faces
     this.vertexNormals = getVertexNormals(this.meshData); 
     //vertex + normal that's the same as face normal
     this.processedMesh = processMesh(this.meshData); 
+
+    if (this.shadowToggle) {
+      setupShadowMap.call(this, gl);
+    }
+    
     this.vboBunny = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vboBunny);
     //allocate memory 
@@ -493,6 +555,7 @@ export function MeshViewer(canvasDOM) {
 
   function setupControls() {
     this.skyboxRenderToggle = false;
+    this.shadowToggle = false;
   }
 
   ////////////////////////////////////////////////////////////
@@ -501,10 +564,13 @@ export function MeshViewer(canvasDOM) {
   async function init() {
     const gl = this.gl;
     setupControls.call(this);
+    // this.canvasDOM.width = this.canvasDOM.clientWidth;
+    // this.canvasDOM.height = this.canvasDOM.clientHeight;
     this.cubeMapTexture = await createSkyBoxTexture(gl);
     //console.log("right after function call of createSkyBoxTexture");
     setupSkyboxRender.call(this, gl);
     setupMainMeshRender.call(this, gl);
+
     // gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
     // gl.cullFace(gl.BACK);
@@ -513,9 +579,19 @@ export function MeshViewer(canvasDOM) {
 
   function render(now) {
     const gl = this.gl;
-    //console.log("render");
-    console.log("canvasDOM with and height:", this.canvasDOM.clientWidth, this.canvasDOM.clientHeight);
-    //gl.viewport(0, 0, this.canvasDOM.clientWidth, this.canvasDOM.clientHeight);
+    // console.log(
+    //   "canvasDOM client width and client height: ",
+    //   this.canvasDOM.clientWidth,
+    //   this.canvasDOM.clientHeight
+    // );
+    // console.log(
+    //   "canvasDOM width and height: ",
+    //   this.canvasDOM.width,
+    //   this.canvasDOM.height
+    // )
+    this.canvasDOM.width = this.canvasDOM.clientWidth;
+    this.canvasDOM.height = this.canvasDOM.clientHeight;
+    gl.viewport(0, 0, this.canvasDOM.width, this.canvasDOM.height);
     gl.clear(gl.COLOR_BUFFER_BIT, gl.DEPTH_BUFFER_BIT);
 
     ///////////////////////////////////////////////
