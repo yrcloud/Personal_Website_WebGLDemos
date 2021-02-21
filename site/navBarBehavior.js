@@ -71,9 +71,9 @@ export function NavBarBehaviors() {
         )
         //install handler
         const skyboxCheckbox = document.querySelector("#skyBoxCheckbox");
-        skyboxCheckbox.addEventListener("mouseup", (event)=>{
+        skyboxCheckbox.addEventListener("change", (event)=>{
           //alert(skyboxCheckbox.checked);
-          this.curRenderObj.skyboxRenderToggle = !skyboxCheckbox.checked;
+          this.curRenderObj.skyboxRenderToggle = skyboxCheckbox.checked;
         });
         //set attributes
         mainDisplayDivDOM.setAttribute("loadedApp", "MeshViewer");
