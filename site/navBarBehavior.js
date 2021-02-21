@@ -66,7 +66,8 @@ export function NavBarBehaviors() {
         )
         const skyboxCheckbox = document.querySelector("#skyBoxCheckbox");
         skyboxCheckbox.addEventListener("mouseup", (event)=>{
-          alert(skyboxCheckbox.checked);
+          //alert(skyboxCheckbox.checked);
+          this.curRenderObj.skyboxRenderToggle = !skyboxCheckbox.checked;
         });
         break;
       case "Pillars":
