@@ -401,20 +401,19 @@ export function MeshViewer(canvasDOM) {
       void main()
       {
       }
-      `
-
+      `;
       this.shadowMapShader = new Shader(gl, shadowMapVertexShader, shadowMapFragShader);
     }
 
     function setupShadowMapTestBoard(gl) {
       const squareVertices = [
-        0.1, 0.1, 0.0, 0.0, 0.0,
-        0.3, 0.1, 0.0, 1.0, 0.0,
-        0.1, 0.3, 0.0, 0.0, 1.0,
-        0.3, 0.3, 0.0, 1.0, 1.0,
+        -1.0, 0.0, -1.0, 0.0, 0.0,
+        1.0, 0.0, -1.0, 1.0, 0.0,
+        -1.0, 0.0, 1.0, 0.0, 1.0,
+        1.0, 0.0, 1.0, 1.0, 1.0,
       ]
       const drawIndices = [
-        0, 2, 1, 1, 2, 3,
+        0, 1, 2, 1, 3, 2,
       ]
       this.vboShadowMapTestBoard = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, this.vboShadowMapTestBoard);
@@ -443,7 +442,7 @@ export function MeshViewer(canvasDOM) {
       layout (location=0) in vec3 vertexPos;
       layout (location=1) in vec2 texCoord;
 
-      uniform mat4 objMat;
+      uniform mat4 modelMat;
       uniform mat4 viewMat;
       uniform mat4 projMat;
 
@@ -451,7 +450,7 @@ export function MeshViewer(canvasDOM) {
 
       void main()
       {
-        gl_Position = projMat * viewMat * objMat * vec4(vertexPos, 1.0);
+        gl_Position = projMat * viewMat * modelMat * vec4(vertexPos, 1.0);
         f_texCoord = texCoord;
       }
       `
@@ -464,7 +463,8 @@ export function MeshViewer(canvasDOM) {
 
       void main()
       {
-        finalFragColor = vec4(texture(shadowMapTexture, f_texCoord).rgb, 1.0);
+        //finalFragColor = vec4(texture(shadowMapTexture, f_texCoord).rgb, 1.0);
+        finalFragColor = vec4(1.0, 0.0, 0.0, 1.0);
       }
       `
 
@@ -692,6 +692,12 @@ export function MeshViewer(canvasDOM) {
       NEAR_CLIP_PLANE_DIST,
       FAR_CLIP_PLANE_DIST
     );
+    const modelMatBunny = mat4.create();
+    mat4.fromRotation(
+      modelMatBunny,
+      this.rotatedYAngle,
+      vec3.fromValues(0.0, 1.0, 0.0)
+    );
     const dirLight = {
       dir: vec3.fromValues(0.0, -1.0, -1.0),
       ambient: vec3.fromValues(0.1, 0.1, 0.1),
@@ -705,12 +711,75 @@ export function MeshViewer(canvasDOM) {
       gl.viewport(0, 0, SHADOW_MAP_WIDTH, SHADOW_MAP_HEIGHT);
       gl.clear(gl.DEPTH_BUFFER_BIT);
       this.gl.useProgram(this.shadowMapShader.shaderProgram);
+      //view matrix from light's point of view
+      const dirLightViewMat = mat4.create();
+      mat4.lookAt(
+        dirLightViewMat,
+        -dirLight,
+        dirLight,
+        vec3.fromValues(0.0, 1.0, 0.0)
+      );
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(this.shadowMapShader.shaderProgram, "viewFromLightMat"),
+        false,
+        dirLightViewMat
+      );
+
+      //projection matrix from light's point of view
+      const dirLightProjMat = mat4.create();
+      mat4.ortho(dirLightProjMat, -5.0, 5.0, -5.0, 5.0, 0.1, 5.0);
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(this.shadowMapShader.shaderProgram, "projMat"),
+        false,
+        dirLightProjMat
+      );
+
+      //object matrix, this is rendering the bunny so use bunny's model matrix
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(this.shadowMapShader.shaderProgram, "modelMat"),
+        false,
+        modelMatBunny
+      );
       gl.bindVertexArray(this.vaoBunny);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboBunny);
       gl.drawElements(gl.TRIANGLES, this.meshData.faces.length, gl.UNSIGNED_SHORT, 0);
       gl.bindVertexArray(null);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+
+    function renderShadowMapTestBoard(gl) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, this.canvasDOM.width, this.canvasDOM.height);
+      gl.useProgram(this.shadowMapTestBoardShader.shaderProgram);
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(this.shadowMapTestBoardShader.shaderProgram, "viewMat"),
+        false,
+        viewMat
+      );
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(this.shadowMapTestBoardShader.shaderProgram, "projMat"),
+        false,
+        projMat
+      );
+      const modelMat = mat4.create();
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(this.shadowMapTestBoardShader.shaderProgram, "modelMat"),
+        false,
+        modelMat
+      );
+      gl.bindVertexArray(this.vaoShadowMapTestBoard);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.drawIndexShadowMapTestBoard);
+      gl.bindTexture(gl.TEXTURE_2D, this.shadowMapTextureSunLight);
+      gl.drawElements(
+        gl.TRIANGLES,
+        6,
+        gl.UNSIGNED_SHORT,
+        0
+      );
+      gl.bindVertexArray(null);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
     }
     const gl = this.gl;
     // console.log(
@@ -733,6 +802,7 @@ export function MeshViewer(canvasDOM) {
     //////////////////////////////////////////////
     if (this.shadowToggle) {
       renderShadowMap.call(this, gl);
+      renderShadowMapTestBoard.call(this, gl);
     }
     gl.viewport(0, 0, this.canvasDOM.width, this.canvasDOM.height);
 
@@ -821,16 +891,11 @@ export function MeshViewer(canvasDOM) {
 
     //compose the rotation based on mouse input
     //console.log("this.rotatedYAngle is: ", this.rotatedYAngle);
-    const objMat = mat4.create();
-    mat4.fromRotation(
-      objMat,
-      this.rotatedYAngle,
-      vec3.fromValues(0.0, 1.0, 0.0)
-    );
+
     gl.uniformMatrix4fv(
       gl.getUniformLocation(this.plainShader.shaderProgram, "objMat"),
       false,
-      objMat
+      modelMatBunny
     );
 
     gl.uniform1i(
