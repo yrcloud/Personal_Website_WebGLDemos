@@ -1,1 +1,1 @@
-# Personal Website with some WebGL demos
+# [Click here to go to the WebGL demo site](./site/)
