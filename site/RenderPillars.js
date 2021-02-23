@@ -86,16 +86,16 @@ function Pillars(canvasDOM) {
   function render(now) {
     const gl = this.gl;
     //console.log("this.gl in render function is: ", gl);
-    console.log(
-      "canvasDOM client width and client height: ",
-      this.canvasDOM.clientWidth,
-      this.canvasDOM.clientHeight
-    );
-    console.log(
-      "canvasDOM width and height: ",
-      this.canvasDOM.width,
-      this.canvasDOM.height
-    )
+    // console.log(
+    //   "canvasDOM client width and client height: ",
+    //   this.canvasDOM.clientWidth,
+    //   this.canvasDOM.clientHeight
+    // );
+    // console.log(
+    //   "canvasDOM width and height: ",
+    //   this.canvasDOM.width,
+    //   this.canvasDOM.height
+    // )
     this.canvasDOM.width = this.canvasDOM.clientWidth;
     this.canvasDOM.height = this.canvasDOM.clientHeight;
     gl.viewport(0, 0, this.canvasDOM.width, this.canvasDOM.height);

@@ -331,11 +331,14 @@ export function MeshViewer(canvasDOM) {
     ///////////// Set up shadow map render /////////////////////
     ////////////////////////////////////////////////////////////
     function setupShadowMap(gl) {
-      const ext = gl.getExtension("WEBGL_depth_texture");
-      if (!ext) {
-        alert("Need WEBGL_depth_texture");
-        return;
-      }
+      //below is only available in WebGL1
+      //WebGL2 naturally supports depth component for framebuffer
+      //syntax is slightly different thought
+      // const ext = gl.getExtension("WEBGL_depth_texture");
+      // if (!ext) {
+      //   alert("Need WEBGL_depth_texture");
+      //   return;
+      // }
       //create the frame buffer object
       this.shadowMapFBO = gl.createFramebuffer();
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowMapFBO);
@@ -351,7 +354,7 @@ export function MeshViewer(canvasDOM) {
       gl.texImage2D(
         gl.TEXTURE_2D,
         0,
-        gl.DEPTH_COMPONENT,
+        gl.DEPTH_COMPONENT24,
         SHADOW_MAP_WIDTH,
         SHADOW_MAP_HEIGHT,
         0,
@@ -372,12 +375,104 @@ export function MeshViewer(canvasDOM) {
       gl.readBuffer(gl.NONE);
 
       console.log(
-        "shadowmap framebuffer status: ",
+        "shadowmap framebuffer status is COMPLETE: ",
         gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE
       );
 
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.bindTexture(gl.TEXTURE_2D, null);
+
+      //create the shader used in the shadow map render pass
+      const shadowMapVertexShader = `#version 300 es
+      layout (location=0) in vec3 vertexPos;
+      uniform mat4 projMat;
+      uniform mat4 viewFromLightMat;
+      uniform mat4 modelMat;
+
+      void main() 
+      {
+        gl_Position = projMat * viewFromLightMat * modelMat * vec4(vertexPos, 1.0);
+      }
+      `;
+
+      const shadowMapFragShader = `#version 300 es
+      precision highp float;
+
+      void main()
+      {
+      }
+      `
+
+      this.shadowMapShader = new Shader(gl, shadowMapVertexShader, shadowMapFragShader);
+    }
+
+    function setupShadowMapTestBoard(gl) {
+      const squareVertices = [
+        0.1, 0.1, 0.0, 0.0, 0.0,
+        0.3, 0.1, 0.0, 1.0, 0.0,
+        0.1, 0.3, 0.0, 0.0, 1.0,
+        0.3, 0.3, 0.0, 1.0, 1.0,
+      ]
+      const drawIndices = [
+        0, 2, 1, 1, 2, 3,
+      ]
+      this.vboShadowMapTestBoard = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.vboShadowMapTestBoard);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(squareVertices), gl.STATIC_DRAW);
+      this.vaoShadowMapTestBoard = gl.createVertexArray();
+      gl.bindVertexArray(this.vaoShadowMapTestBoard);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, FLOAT_BYTE_SIZE * 5, 0);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(
+        1,
+        2,
+        gl.FLOAT,
+        false,
+        FLOAT_BYTE_SIZE * 5,
+        FLOAT_BYTE_SIZE * 3
+      );
+      gl.bindVertexArray(null);
+
+      this.drawIndexShadowMapTestBoard = gl.createBuffer();
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.drawIndexShadowMapTestBoard);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(drawIndices), gl.STATIC_DRAW);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+      const shadowMapTestBoardVertexShader = `#version 300 es
+      layout (location=0) in vec3 vertexPos;
+      layout (location=1) in vec2 texCoord;
+
+      uniform mat4 objMat;
+      uniform mat4 viewMat;
+      uniform mat4 projMat;
+
+      out vec2 f_texCoord;
+
+      void main()
+      {
+        gl_Position = projMat * viewMat * objMat * vec4(vertexPos, 1.0);
+        f_texCoord = texCoord;
+      }
+      `
+
+      const shadowMapTestBoardFragShader = `#version 300 es
+      precision highp float;
+      in vec2 f_texCoord;
+      uniform sampler2D shadowMapTexture;
+      out vec4 finalFragColor;
+
+      void main()
+      {
+        finalFragColor = vec4(texture(shadowMapTexture, f_texCoord).rgb, 1.0);
+      }
+      `
+
+      this.shadowMapTestBoardShader = new Shader(
+        gl,
+        shadowMapTestBoardVertexShader,
+        shadowMapTestBoardFragShader
+      );
     }
 
     ////////////////////////////////////////////////////////////
@@ -392,6 +487,7 @@ export function MeshViewer(canvasDOM) {
 
     if (this.shadowToggle) {
       setupShadowMap.call(this, gl);
+      setupShadowMapTestBoard.call(this, gl);
     }
     
     this.vboBunny = gl.createBuffer();
@@ -555,7 +651,7 @@ export function MeshViewer(canvasDOM) {
 
   function setupControls() {
     this.skyboxRenderToggle = false;
-    this.shadowToggle = false;
+    this.shadowToggle = true;
   }
 
   ////////////////////////////////////////////////////////////
@@ -578,22 +674,6 @@ export function MeshViewer(canvasDOM) {
   }
 
   function render(now) {
-    const gl = this.gl;
-    // console.log(
-    //   "canvasDOM client width and client height: ",
-    //   this.canvasDOM.clientWidth,
-    //   this.canvasDOM.clientHeight
-    // );
-    // console.log(
-    //   "canvasDOM width and height: ",
-    //   this.canvasDOM.width,
-    //   this.canvasDOM.height
-    // )
-    this.canvasDOM.width = this.canvasDOM.clientWidth;
-    this.canvasDOM.height = this.canvasDOM.clientHeight;
-    gl.viewport(0, 0, this.canvasDOM.width, this.canvasDOM.height);
-    gl.clear(gl.COLOR_BUFFER_BIT, gl.DEPTH_BUFFER_BIT);
-
     ///////////////////////////////////////////////
     //////// Common data ////////////////
     ///////////////////////////////////////////////
@@ -612,9 +692,52 @@ export function MeshViewer(canvasDOM) {
       NEAR_CLIP_PLANE_DIST,
       FAR_CLIP_PLANE_DIST
     );
+    const dirLight = {
+      dir: vec3.fromValues(0.0, -1.0, -1.0),
+      ambient: vec3.fromValues(0.1, 0.1, 0.1),
+      diffuse: vec3.fromValues(0.8, 0.9, 0.5),
+      specular: vec3.fromValues(1.0, 1.0, 1.0),
+    };
+
+    function renderShadowMap(gl) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowMapFBO);
+      gl.enable(gl.DEPTH_TEST);
+      gl.viewport(0, 0, SHADOW_MAP_WIDTH, SHADOW_MAP_HEIGHT);
+      gl.clear(gl.DEPTH_BUFFER_BIT);
+      this.gl.useProgram(this.shadowMapShader.shaderProgram);
+      gl.bindVertexArray(this.vaoBunny);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboBunny);
+      gl.drawElements(gl.TRIANGLES, this.meshData.faces.length, gl.UNSIGNED_SHORT, 0);
+      gl.bindVertexArray(null);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+    const gl = this.gl;
+    // console.log(
+    //   "canvasDOM client width and client height: ",
+    //   this.canvasDOM.clientWidth,
+    //   this.canvasDOM.clientHeight
+    // );
+    // console.log(
+    //   "canvasDOM width and height: ",
+    //   this.canvasDOM.width,
+    //   this.canvasDOM.height
+    // )
+    this.canvasDOM.width = this.canvasDOM.clientWidth;
+    this.canvasDOM.height = this.canvasDOM.clientHeight;
+    gl.viewport(0, 0, this.canvasDOM.width, this.canvasDOM.height);
+    gl.clear(gl.COLOR_BUFFER_BIT, gl.DEPTH_BUFFER_BIT);
+
+    //////////////////////////////////////////////
+    //////// draw the shadow map /////////////////
+    //////////////////////////////////////////////
+    if (this.shadowToggle) {
+      renderShadowMap.call(this, gl);
+    }
+    gl.viewport(0, 0, this.canvasDOM.width, this.canvasDOM.height);
 
     ///////////////////////////////////////////////
-    //////// first draw the skybox ////////////////
+    //////// draw the skybox ////////////////
     ///////////////////////////////////////////////
     if (this.skyboxRenderToggle) {
       gl.useProgram(this.skyboxShader.shaderProgram);
@@ -640,12 +763,7 @@ export function MeshViewer(canvasDOM) {
     //////// draw the bunny ////////////////
     ///////////////////////////////////////////////
     gl.useProgram(this.plainShader.shaderProgram);
-    const dirLight = {
-      dir: vec3.fromValues(0.0, -1.0, -1.0),
-      ambient: vec3.fromValues(0.1, 0.1, 0.1),
-      diffuse: vec3.fromValues(0.8, 0.9, 0.5),
-      specular: vec3.fromValues(1.0, 1.0, 1.0),
-    };
+
     gl.uniform3f(
       gl.getUniformLocation(this.plainShader.shaderProgram, "g_dirLight._dir"),
       dirLight.dir[0],
@@ -750,7 +868,21 @@ export function MeshViewer(canvasDOM) {
     this.gl.bindVertexArray(null);
     this.gl.deleteVertexArray(this.vaoBunny);
     this.gl.deleteVertexArray(this.vaoSkybox);
+
+    if (this.shadowMapFBO != null) {
+      console.log("this.shadowMapFBO is: ", this.shadowMapFBO);
+      this.gl.deleteFramebuffer(this.shadowMapFBO);
+    }
+    if (this.shadowMapTextureSunLight != null) {
+      this.gl.deleteTexture(this.shadowMapTextureSunLight);
+    }
     this.plainShader.cleanUp();
     this.skyboxShader.cleanUp();
+    if (this.shadowMapShader != null) {
+      this.shadowMapShader.cleanUp();
+    }
+    if (this.shadowMapTestBoardShader != null) {
+      this.shadowMapTestBoardShader.cleanUp();
+    }
   }
 }
