@@ -347,19 +347,20 @@ export function MeshViewer(canvasDOM) {
       this.shadowMapTextureSunLight = gl.createTexture();
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, this.shadowMapTextureSunLight);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
       gl.texImage2D(
         gl.TEXTURE_2D,
         0,
-        gl.DEPTH_COMPONENT24,
+        gl.DEPTH_COMPONENT32F,
         SHADOW_MAP_WIDTH,
         SHADOW_MAP_HEIGHT,
         0,
         gl.DEPTH_COMPONENT,
-        gl.UNSIGNED_INT,
+        gl.FLOAT,
+        //gl.DEPTH_COMPONENT24,
         null
       );
       //attach texture as depth component
@@ -407,14 +408,14 @@ export function MeshViewer(canvasDOM) {
 
     function setupShadowMapTestBoard(gl) {
       const squareVertices = [
-        -1.0, 0.0, -1.0, 0.0, 0.0,
-        1.0, 0.0, -1.0, 1.0, 0.0,
-        -1.0, 0.0, 1.0, 0.0, 1.0,
-        1.0, 0.0, 1.0, 1.0, 1.0,
-      ]
+        0.1, 0.0, 0.0, 0.0, 0.0,
+        0.3, 0.0, 0.0, 1.0, 0.0,
+        0.1, 0.2, 0.0, 0.0, 1.0,
+        0.3, 0.2, 0.0, 1.0, 1.0,
+      ];
       const drawIndices = [
         0, 1, 2, 1, 3, 2,
-      ]
+      ];
       this.vboShadowMapTestBoard = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, this.vboShadowMapTestBoard);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(squareVertices), gl.STATIC_DRAW);
@@ -463,8 +464,9 @@ export function MeshViewer(canvasDOM) {
 
       void main()
       {
-        //finalFragColor = vec4(texture(shadowMapTexture, f_texCoord).rgb, 1.0);
-        finalFragColor = vec4(1.0, 0.0, 0.0, 1.0);
+        finalFragColor = vec4(texture(shadowMapTexture, f_texCoord).rrr, 1.0);
+        //finalFragColor = vec4(1.0, 0.0, 0.0, 1.0);
+        //finalFragColor = vec4(f_texCoord.x, f_texCoord.y, 1.0, 1.0);
       }
       `
 
@@ -713,12 +715,20 @@ export function MeshViewer(canvasDOM) {
       this.gl.useProgram(this.shadowMapShader.shaderProgram);
       //view matrix from light's point of view
       const dirLightViewMat = mat4.create();
+      let dirLightPos = vec3.create();
+      vec3.negate(dirLightPos, dirLight.dir);
       mat4.lookAt(
         dirLightViewMat,
-        -dirLight,
-        dirLight,
+        dirLightPos,  //camera position
+        vec3.fromValues(0.0, 0.0, 0.0), //camera focus position, world origin
         vec3.fromValues(0.0, 1.0, 0.0)
       );
+      // mat4.lookAt(
+      //   dirLightViewMat,
+      //   this.cameraPosWld,
+      //   this.cameraFocusPosWld,
+      //   this.cameraUp
+      // );
       gl.uniformMatrix4fv(
         gl.getUniformLocation(this.shadowMapShader.shaderProgram, "viewFromLightMat"),
         false,
@@ -727,7 +737,7 @@ export function MeshViewer(canvasDOM) {
 
       //projection matrix from light's point of view
       const dirLightProjMat = mat4.create();
-      mat4.ortho(dirLightProjMat, -5.0, 5.0, -5.0, 5.0, 0.1, 5.0);
+      mat4.ortho(dirLightProjMat, -0.5, 0.5, -0.5, 0.5, 0.01, 2.0);
       gl.uniformMatrix4fv(
         gl.getUniformLocation(this.shadowMapShader.shaderProgram, "projMat"),
         false,
@@ -741,6 +751,7 @@ export function MeshViewer(canvasDOM) {
         modelMatBunny
       );
       gl.bindVertexArray(this.vaoBunny);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture); //bind the cubeTexture
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboBunny);
       gl.drawElements(gl.TRIANGLES, this.meshData.faces.length, gl.UNSIGNED_SHORT, 0);
       gl.bindVertexArray(null);
