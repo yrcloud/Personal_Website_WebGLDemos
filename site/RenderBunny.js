@@ -12,6 +12,7 @@ import {
 } from "./toji-gl-matrix-v3.3.0-35-g21b745f/toji-gl-matrix-21b745f/src/index.js";
 
 import {skyboxVertices} from "./SkyboxGeo.js";
+import {backBoardsVertices} from "./backBoardsGeo.js";
 
 export function MeshViewer(canvasDOM) {
   //exposed 4 functions, note that init is async, need to call with await
@@ -651,6 +652,115 @@ export function MeshViewer(canvasDOM) {
     console.log("Finishing setupSkyboxRender");
   }
 
+  function setupBackBoardsRender(gl) {
+    //shaders
+    const backBoardsVertexShader = `#version 300 es
+    layout (location=0) in vec3 vPos;
+    layout (location=1) in vec3 vNormal;
+
+    uniform mat4 modelMat;
+    uniform mat4 viewMat;
+    uniform mat4 projMat;
+
+    out vec3 fNormal;
+    out vec3 fPos;
+
+    void main()
+    {
+      gl_Position = projMat * viewMat * modelMat * vec4(vPos, 1.0);
+      fNormal = vNormal;
+      fPos = vPos;
+    }
+    `;
+
+    const backBoardsFragShader = `#version 300 es
+    precision highp float;
+    in vec3 fNormal;
+    in vec3 fPos;
+    out vec4 finalFragColor;
+
+    struct DirLight 
+    {
+      vec3 _dir;
+      vec3 _ambient;
+      vec3 _diffuse;
+      vec3 _specular;
+    };
+
+    uniform DirLight g_dirLight;
+    uniform vec3 g_cameraPos;
+
+    vec3 boardColor = vec3(0.3, 0.7, 0.9);
+    
+    void main()
+    {
+      vec3 normal = normalize(fNormal);
+      vec3 dirLightDir = normalize(g_dirLight._dir);
+      vec3 diffuse = dot(normal, -dirLightDir) * g_dirLight._diffuse;
+    
+      vec3 dirLightReflect = reflect(dirLightDir, normal);
+      vec3 dirPosToCamera = normalize(g_cameraPos - fPos);
+      float specular = dot(dirLightReflect, dirPosToCamera);
+      specular = clamp(specular, 0.0f, 1.0f);
+      specular = pow (specular, 16.0); //32 is shininess
+      vec3 specularResult = specular * g_dirLight._specular;
+
+      vec3 ambient = g_dirLight._ambient;
+      finalFragColor = vec4((diffuse + ambient + specularResult) * boardColor, 1.0);
+      //finalFragColor = vec4(1.0, 0.0, 0.0, 1.0);
+    }
+    `;
+    this.backBoardsShader = new Shader(
+      gl,
+      backBoardsVertexShader,
+      backBoardsFragShader
+    );
+
+    //vertex array buffer
+    this.vboBackBoards = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vboBackBoards);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array(backBoardsVertices),
+      gl.STATIC_DRAW
+    );
+    //vertex array object
+    this.vaoBackBoards = gl.createVertexArray();
+    gl.bindVertexArray(this.vaoBackBoards);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 6 * FLOAT_BYTE_SIZE, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(
+      1,
+      3,
+      gl.FLOAT,
+      false,
+      6 * FLOAT_BYTE_SIZE,
+      3 * FLOAT_BYTE_SIZE
+    );
+    gl.bindVertexArray(null);
+    //element array buffer (drawing index);
+    this.drawIndexBackBoards = [
+      0, 1, 2,  
+      2, 3, 0, 
+      4, 5, 6, 
+      6, 7, 4,
+      8, 9, 10,
+      10, 11, 8,
+    ]
+    this.eaboBackBoards = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboBackBoards);
+    gl.bufferData(
+      gl.ELEMENT_ARRAY_BUFFER,
+      new Int16Array(this.drawIndexBackBoards),
+      gl.STATIC_DRAW
+    );
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+    gl.bindVertexArray(null);
+  }
+
   function setupControls() {
     this.skyboxRenderToggle = false;
     this.shadowToggle = true;
@@ -668,6 +778,7 @@ export function MeshViewer(canvasDOM) {
     //console.log("right after function call of createSkyBoxTexture");
     setupSkyboxRender.call(this, gl);
     setupMainMeshRender.call(this, gl);
+    setupBackBoardsRender.call(this, gl);
 
     // gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
@@ -701,7 +812,7 @@ export function MeshViewer(canvasDOM) {
       vec3.fromValues(0.0, 1.0, 0.0)
     );
     const dirLight = {
-      dir: vec3.fromValues(0.0, -1.0, -1.0),
+      dir: vec3.fromValues(0.5, -1.0, -1.0),
       ambient: vec3.fromValues(0.1, 0.1, 0.1),
       diffuse: vec3.fromValues(0.8, 0.9, 0.5),
       specular: vec3.fromValues(1.0, 1.0, 1.0),
@@ -723,12 +834,6 @@ export function MeshViewer(canvasDOM) {
         vec3.fromValues(0.0, 0.0, 0.0), //camera focus position, world origin
         vec3.fromValues(0.0, 1.0, 0.0)
       );
-      // mat4.lookAt(
-      //   dirLightViewMat,
-      //   this.cameraPosWld,
-      //   this.cameraFocusPosWld,
-      //   this.cameraUp
-      // );
       gl.uniformMatrix4fv(
         gl.getUniformLocation(this.shadowMapShader.shaderProgram, "viewFromLightMat"),
         false,
@@ -792,6 +897,57 @@ export function MeshViewer(canvasDOM) {
       gl.bindTexture(gl.TEXTURE_2D, null);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
     }
+
+    function renderBackBoards(gl) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindVertexArray(this.vaoBackBoards);
+      gl.useProgram(this.backBoardsShader.shaderProgram);
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(this.backBoardsShader.shaderProgram, "modelMat"),
+        false,
+        mat4.create()
+      );
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(this.backBoardsShader.shaderProgram, "viewMat"),
+        false,
+        viewMat
+      );
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(this.backBoardsShader.shaderProgram, "projMat"),
+        false,
+        projMat
+      );
+      gl.uniform3f(
+        gl.getUniformLocation(this.backBoardsShader.shaderProgram, "g_cameraPos"),
+        this.cameraPosWld[0], this.cameraPosWld[1], this.cameraPosWld[2]
+      );
+      gl.uniform3f(
+        gl.getUniformLocation(this.backBoardsShader.shaderProgram, "g_dirLight._dir"),
+        dirLight.dir[0], dirLight.dir[1], dirLight.dir[2],
+      );
+      gl.uniform3f(
+        gl.getUniformLocation(this.backBoardsShader.shaderProgram, "g_dirLight._ambient"),
+        dirLight.ambient[0], dirLight.ambient[1], dirLight.ambient[2],
+      );
+      gl.uniform3f(
+        gl.getUniformLocation(this.backBoardsShader.shaderProgram, "g_dirLight._diffuse"),
+        dirLight.diffuse[0], dirLight.diffuse[1], dirLight.diffuse[2],
+      );
+      gl.uniform3f(
+        gl.getUniformLocation(this.backBoardsShader.shaderProgram, "g_dirLight._specular"),
+        dirLight.specular[0], dirLight.specular[1], dirLight.specular[2],
+      );
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboBackBoards);
+      gl.drawElements(
+        gl.TRIANGLES,
+        this.drawIndexBackBoards.length,
+        gl.UNSIGNED_SHORT,
+        0
+      );
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+      gl.bindVertexArray(null);
+    }
+
     const gl = this.gl;
     // console.log(
     //   "canvasDOM client width and client height: ",
@@ -816,6 +972,11 @@ export function MeshViewer(canvasDOM) {
       renderShadowMapTestBoard.call(this, gl);
     }
     gl.viewport(0, 0, this.canvasDOM.width, this.canvasDOM.height);
+
+    //////////////////////////////////////////////
+    //////// draw the back boards /////////////////
+    //////////////////////////////////////////////
+    renderBackBoards.call(this, gl);
 
     ///////////////////////////////////////////////
     //////// draw the skybox ////////////////
@@ -938,12 +1099,21 @@ export function MeshViewer(canvasDOM) {
     }
     this.activeRendering = false;
     this.gl.clear(this.gl.COLOR_BUFFER_BIT, this.gl.DEPTH_BUFFER_BIT);
+    //vertex buffers
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
     this.gl.deleteBuffer(this.vboBunny);
     this.gl.deleteBuffer(this.vboSkybox);
+    this.gl.deleteBuffer(this.vboBackBoards);
+
+    //VAOs
     this.gl.bindVertexArray(null);
     this.gl.deleteVertexArray(this.vaoBunny);
     this.gl.deleteVertexArray(this.vaoSkybox);
+    this.gl.deleteVertexArray(this.vaoBackBoards);
+
+    //element array buffers
+    this.gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+    this.gl.deleteBuffer(this.eaboBunny);
 
     if (this.shadowMapFBO != null) {
       console.log("this.shadowMapFBO is: ", this.shadowMapFBO);
@@ -954,6 +1124,7 @@ export function MeshViewer(canvasDOM) {
     }
     this.plainShader.cleanUp();
     this.skyboxShader.cleanUp();
+    this.backBoardsShader.cleanUp();
     if (this.shadowMapShader != null) {
       this.shadowMapShader.cleanUp();
     }
