@@ -717,7 +717,7 @@ export function MeshViewer(canvasDOM) {
       vec3 ambient = g_dirLight._ambient;
 
       vec3 NDCCoord = vec3(NDCPosShadowMap.x/NDCPosShadowMap.w, NDCPosShadowMap.y/NDCPosShadowMap.w, NDCPosShadowMap.z/NDCPosShadowMap.w);
-      vec3 NDCCoordIn0to1 = (NDCCoord + vec3(1.0)) * 0.5;
+      vec3 NDCCoordIn0to1 = NDCCoord * 0.5 + vec3(0.5);
       float depthInShadowMap = texture(shadowMapTexture, vec2(NDCCoordIn0to1)).r;
       bool inShadow = NDCCoordIn0to1.z > depthInShadowMap ? true : false;
 
@@ -828,7 +828,7 @@ export function MeshViewer(canvasDOM) {
       vec3.fromValues(0.0, 1.0, 0.0)
     );
     const dirLight = {
-      dir: vec3.fromValues(0.5, -0.5, -0.5),
+      dir: vec3.fromValues(1.0, -0.5, -0.0),
       ambient: vec3.fromValues(0.1, 0.1, 0.1),
       diffuse: vec3.fromValues(0.8, 0.9, 0.5),
       specular: vec3.fromValues(1.0, 1.0, 1.0),
@@ -961,7 +961,7 @@ export function MeshViewer(canvasDOM) {
         dirLightViewMat,
         dirLightPos,
         vec3.fromValues(0.0, 0.0, 0.0),
-        vec3.fromValues(0.0, 1.0, 1.0)
+        vec3.fromValues(0.0, 1.0, 0.0)
       )
       gl.uniformMatrix4fv(
         gl.getUniformLocation(
