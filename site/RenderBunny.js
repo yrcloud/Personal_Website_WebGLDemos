@@ -661,15 +661,21 @@ export function MeshViewer(canvasDOM) {
     uniform mat4 modelMat;
     uniform mat4 viewMat;
     uniform mat4 projMat;
+    uniform mat4 dirLightViewMat;
+    uniform mat4 dirLightProjMat;
+    uniform sampler2D shadowMapTexture;
+    uniform samplerCube skybox;
 
     out vec3 fNormal;
     out vec3 fPos;
+    out vec4 NDCPosShadowMap;
 
     void main()
     {
       gl_Position = projMat * viewMat * modelMat * vec4(vPos, 1.0);
       fNormal = vNormal;
       fPos = vPos;
+      NDCPosShadowMap = dirLightProjMat * dirLightViewMat * modelMat * vec4(vPos, 1.0);
     }
     `;
 
@@ -677,7 +683,10 @@ export function MeshViewer(canvasDOM) {
     precision highp float;
     in vec3 fNormal;
     in vec3 fPos;
+    in vec4 NDCPosShadowMap;
     out vec4 finalFragColor;
+    uniform sampler2D shadowMapTexture;
+    uniform samplerCube skybox;
 
     struct DirLight 
     {
@@ -706,8 +715,15 @@ export function MeshViewer(canvasDOM) {
       vec3 specularResult = specular * g_dirLight._specular;
 
       vec3 ambient = g_dirLight._ambient;
-      finalFragColor = vec4((diffuse + ambient + specularResult) * boardColor, 1.0);
-      //finalFragColor = vec4(1.0, 0.0, 0.0, 1.0);
+
+      vec3 NDCCoord = vec3(NDCPosShadowMap.x/NDCPosShadowMap.w, NDCPosShadowMap.y/NDCPosShadowMap.w, NDCPosShadowMap.z/NDCPosShadowMap.w);
+      vec3 NDCCoordIn0to1 = (NDCCoord + vec3(1.0)) * 0.5;
+      float depthInShadowMap = texture(shadowMapTexture, vec2(NDCCoordIn0to1)).r;
+      bool inShadow = NDCCoordIn0to1.z > depthInShadowMap ? true : false;
+
+      finalFragColor = inShadow ?
+         vec4(0.1, 0.1, 0.1, 1.0) :
+         vec4((diffuse + ambient + specularResult) * boardColor, 1.0);
     }
     `;
     this.backBoardsShader = new Shader(
@@ -812,7 +828,7 @@ export function MeshViewer(canvasDOM) {
       vec3.fromValues(0.0, 1.0, 0.0)
     );
     const dirLight = {
-      dir: vec3.fromValues(0.5, -1.0, -1.0),
+      dir: vec3.fromValues(0.5, -0.5, -0.5),
       ambient: vec3.fromValues(0.1, 0.1, 0.1),
       diffuse: vec3.fromValues(0.8, 0.9, 0.5),
       specular: vec3.fromValues(1.0, 1.0, 1.0),
@@ -937,6 +953,36 @@ export function MeshViewer(canvasDOM) {
         gl.getUniformLocation(this.backBoardsShader.shaderProgram, "g_dirLight._specular"),
         dirLight.specular[0], dirLight.specular[1], dirLight.specular[2],
       );
+      //shadow map related
+      let dirLightPos = vec3.create();
+      vec3.negate(dirLightPos, dirLight.dir);
+      const dirLightViewMat = mat4.create();
+      mat4.lookAt(
+        dirLightViewMat,
+        dirLightPos,
+        vec3.fromValues(0.0, 0.0, 0.0),
+        vec3.fromValues(0.0, 1.0, 1.0)
+      )
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(
+          this.backBoardsShader.shaderProgram,
+          "dirLightViewMat"
+        ),
+        false,
+        dirLightViewMat
+      );
+      const dirLightProjMat = mat4.create();
+      mat4.ortho(dirLightProjMat, -0.5, 0.5, -0.5, 0.5, 0.01, 2.0);
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(
+          this.backBoardsShader.shaderProgram,
+          "dirLightProjMat"
+        ),
+        false,
+        dirLightProjMat
+      );
+      gl.bindTexture(gl.TEXTURE_2D, this.shadowMapTextureSunLight);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboBackBoards);
       gl.drawElements(
         gl.TRIANGLES,
@@ -969,7 +1015,7 @@ export function MeshViewer(canvasDOM) {
     //////////////////////////////////////////////
     if (this.shadowToggle) {
       renderShadowMap.call(this, gl);
-      renderShadowMapTestBoard.call(this, gl);
+      //renderShadowMapTestBoard.call(this, gl);
     }
     gl.viewport(0, 0, this.canvasDOM.width, this.canvasDOM.height);
 
