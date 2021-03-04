@@ -1011,6 +1011,152 @@ export function MeshViewer(canvasDOM) {
       gl.bindVertexArray(null);
     }
 
+    function renderSkybox(gl) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      if (this.skyboxRenderToggle) {
+        gl.useProgram(this.skyboxShader.shaderProgram);
+        gl.uniformMatrix4fv(
+          gl.getUniformLocation(this.skyboxShader.shaderProgram, "viewMat"),
+          false,
+          viewMat
+        );
+        gl.uniformMatrix4fv(
+          gl.getUniformLocation(this.skyboxShader.shaderProgram, "projMat"),
+          false,
+          projMat
+        );
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture);
+        //gl.bindBuffer(gl.ARRAY_BUFFER, this.vboSkybox);
+        gl.bindVertexArray(this.vaoSkybox);
+        gl.drawArrays(gl.TRIANGLES, 0, skyboxVertices.length / 3);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindVertexArray(null);
+      }
+    }
+
+    function renderBunny(gl) {
+      gl.useProgram(this.mainMeshShader.shaderProgram);
+      gl.uniform3f(
+        gl.getUniformLocation(this.mainMeshShader.shaderProgram, "g_dirLight._dir"),
+        dirLight.dir[0],
+        dirLight.dir[1],
+        dirLight.dir[2]
+      );
+      gl.uniform3f(
+        gl.getUniformLocation(
+          this.mainMeshShader.shaderProgram,
+          "g_dirLight._ambient"
+        ),
+        dirLight.ambient[0],
+        dirLight.ambient[1],
+        dirLight.ambient[2]
+      );
+      gl.uniform3f(
+        gl.getUniformLocation(
+          this.mainMeshShader.shaderProgram,
+          "g_dirLight._diffuse"
+        ),
+        dirLight.diffuse[0],
+        dirLight.diffuse[1],
+        dirLight.diffuse[2]
+      );
+      gl.uniform3f(
+        gl.getUniformLocation(
+          this.mainMeshShader.shaderProgram,
+          "g_dirLight._specular"
+        ),
+        dirLight.specular[0],
+        dirLight.specular[1],
+        dirLight.specular[2]
+      );
+  
+      //Pass shared view matrix to shader
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(this.mainMeshShader.shaderProgram, "viewMat"),
+        false,
+        viewMat
+      );
+      //Pass shared projection matrix to shader
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(this.mainMeshShader.shaderProgram, "projMat"),
+        false,
+        projMat
+      );
+  
+      //pass camera world position to frag shader
+      gl.uniform3f(
+        gl.getUniformLocation(this.mainMeshShader.shaderProgram, "cameraPosWld"),
+        this.cameraPosWld[0],
+        this.cameraPosWld[1],
+        this.cameraPosWld[2]
+      );
+  
+      //compose the rotation based on mouse input
+      //console.log("this.rotatedYAngle is: ", this.rotatedYAngle);
+  
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(this.mainMeshShader.shaderProgram, "modelMat"),
+        false,
+        modelMatBunny
+      );
+      gl.uniform1i(
+        gl.getUniformLocation(
+          this.mainMeshShader.shaderProgram,
+          "skyboxRenderToggle"
+        ),
+        this.skyboxRenderToggle
+      );
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(this.mainMeshShader.shaderProgram, "dirLightViewMat"),
+        false,
+        dirLightViewMat,
+      );
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(this.mainMeshShader.shaderProgram, "dirLightProjMat"),
+        false,
+        dirLightProjMat,
+      );
+  
+      gl.bindVertexArray(this.vaoBunny);
+      //bind the cubeTexture
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.shadowMapTextureDirLight); //bind the shadowmap
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture);
+  
+      gl.uniform1i(
+        gl.getUniformLocation(
+          this.mainMeshShader.shaderProgram,
+          "shadowMapTexture"
+        ),
+        0
+      );
+  
+      gl.uniform1i(
+        gl.getUniformLocation(
+          this.mainMeshShader.shaderProgram,
+          "skybox"
+        ),
+        1
+      );
+  
+      //gl.drawArrays(gl.TRIANGLES, 0, this.processedMesh.length / 6);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboBunny);
+      gl.drawElements(
+        gl.TRIANGLES,
+        this.meshData.faces.length,
+        gl.UNSIGNED_SHORT,
+        0
+      );
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+      gl.bindVertexArray(null);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+      gl.activeTexture(gl.TEXTURE0);
+    }
+
     const gl = this.gl;
     // console.log(
     //   "canvasDOM client width and client height: ",
@@ -1044,150 +1190,13 @@ export function MeshViewer(canvasDOM) {
     ///////////////////////////////////////////////
     //////// draw the skybox ////////////////
     ///////////////////////////////////////////////
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    if (this.skyboxRenderToggle) {
-      gl.useProgram(this.skyboxShader.shaderProgram);
-      gl.uniformMatrix4fv(
-        gl.getUniformLocation(this.skyboxShader.shaderProgram, "viewMat"),
-        false,
-        viewMat
-      );
-      gl.uniformMatrix4fv(
-        gl.getUniformLocation(this.skyboxShader.shaderProgram, "projMat"),
-        false,
-        projMat
-      );
-      gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture);
-      //gl.bindBuffer(gl.ARRAY_BUFFER, this.vboSkybox);
-      gl.bindVertexArray(this.vaoSkybox);
-      gl.drawArrays(gl.TRIANGLES, 0, skyboxVertices.length / 3);
-      gl.bindBuffer(gl.ARRAY_BUFFER, null);
-      gl.bindVertexArray(null);
-    }
+    renderSkybox.call(this, gl);
 
     ///////////////////////////////////////////////
     //////// draw the bunny ////////////////
     ///////////////////////////////////////////////
-    gl.useProgram(this.mainMeshShader.shaderProgram);
-    gl.uniform3f(
-      gl.getUniformLocation(this.mainMeshShader.shaderProgram, "g_dirLight._dir"),
-      dirLight.dir[0],
-      dirLight.dir[1],
-      dirLight.dir[2]
-    );
-    gl.uniform3f(
-      gl.getUniformLocation(
-        this.mainMeshShader.shaderProgram,
-        "g_dirLight._ambient"
-      ),
-      dirLight.ambient[0],
-      dirLight.ambient[1],
-      dirLight.ambient[2]
-    );
-    gl.uniform3f(
-      gl.getUniformLocation(
-        this.mainMeshShader.shaderProgram,
-        "g_dirLight._diffuse"
-      ),
-      dirLight.diffuse[0],
-      dirLight.diffuse[1],
-      dirLight.diffuse[2]
-    );
-    gl.uniform3f(
-      gl.getUniformLocation(
-        this.mainMeshShader.shaderProgram,
-        "g_dirLight._specular"
-      ),
-      dirLight.specular[0],
-      dirLight.specular[1],
-      dirLight.specular[2]
-    );
+    renderBunny.call(this, gl);
 
-    //Pass shared view matrix to shader
-    gl.uniformMatrix4fv(
-      gl.getUniformLocation(this.mainMeshShader.shaderProgram, "viewMat"),
-      false,
-      viewMat
-    );
-    //Pass shared projection matrix to shader
-    gl.uniformMatrix4fv(
-      gl.getUniformLocation(this.mainMeshShader.shaderProgram, "projMat"),
-      false,
-      projMat
-    );
-
-    //pass camera world position to frag shader
-    gl.uniform3f(
-      gl.getUniformLocation(this.mainMeshShader.shaderProgram, "cameraPosWld"),
-      this.cameraPosWld[0],
-      this.cameraPosWld[1],
-      this.cameraPosWld[2]
-    );
-
-    //compose the rotation based on mouse input
-    console.log("this.rotatedYAngle is: ", this.rotatedYAngle);
-
-    gl.uniformMatrix4fv(
-      gl.getUniformLocation(this.mainMeshShader.shaderProgram, "modelMat"),
-      false,
-      modelMatBunny
-    );
-    gl.uniform1i(
-      gl.getUniformLocation(
-        this.mainMeshShader.shaderProgram,
-        "skyboxRenderToggle"
-      ),
-      this.skyboxRenderToggle
-    );
-    gl.uniformMatrix4fv(
-      gl.getUniformLocation(this.mainMeshShader.shaderProgram, "dirLightViewMat"),
-      false,
-      dirLightViewMat,
-    );
-    gl.uniformMatrix4fv(
-      gl.getUniformLocation(this.mainMeshShader.shaderProgram, "dirLightProjMat"),
-      false,
-      dirLightProjMat,
-    );
-
-    gl.bindVertexArray(this.vaoBunny);
-    //bind the cubeTexture
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.shadowMapTextureDirLight); //bind the shadowmap
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture);
-
-    gl.uniform1i(
-      gl.getUniformLocation(
-        this.mainMeshShader.shaderProgram,
-        "shadowMapTexture"
-      ),
-      0
-    );
-
-    gl.uniform1i(
-      gl.getUniformLocation(
-        this.mainMeshShader.shaderProgram,
-        "skybox"
-      ),
-      1
-    );
-
-    //gl.drawArrays(gl.TRIANGLES, 0, this.processedMesh.length / 6);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboBunny);
-    gl.drawElements(
-      gl.TRIANGLES,
-      this.meshData.faces.length,
-      gl.UNSIGNED_SHORT,
-      0
-    );
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-    gl.bindVertexArray(null);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, null);
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
-    gl.activeTexture(gl.TEXTURE0);
     this.curRequestedFrame = requestAnimationFrame(this.render);
   }
 
