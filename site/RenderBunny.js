@@ -124,14 +124,20 @@ export function MeshViewer(canvasDOM) {
     uniform mat4 objMat;
     uniform mat4 viewMat;
     uniform mat4 projMat;
+    uniform mat4 dirLightViewMat;
+    uniform mat4 dirLightProjMat;
+    uniform sampler2D shadowMapTexture;
+    uniform samplerCube skybox;
   
     out vec3 normal;
     out vec4 fragPosWld;
+    out vec4 NDCCoordDirLight;
   
     void main() {
       gl_Position = projMat * viewMat * objMat * vec4(vPos, 1.0f);
       normal = mat3(objMat) * vNormal;
       fragPosWld = objMat * vec4(vPos, 1.0f);
+      NDCCoordDirLight = dirLightProjMat * dirLightViewMat * objMat * vec4(vPos, 1.0f);
     }
     `;
   
@@ -139,9 +145,13 @@ export function MeshViewer(canvasDOM) {
     precision highp float;
     in vec3 normal;
     in vec4 fragPosWld;
+    in vec4 NDCCoordDirLight;
+
     uniform vec3 cameraPosWld;
+    uniform sampler2D shadowMapTexture;
     uniform samplerCube skybox;
     uniform bool skyboxRenderToggle;
+
     out vec4 finalColor;
   
     struct DirLight
@@ -169,7 +179,7 @@ export function MeshViewer(canvasDOM) {
       /*
       //ambient last
       vec3 ambientResult = light._ambient * simTextColor; 
-          //vec3(texture (mat._diffuseSampler2D, textureCoord));
+      //vec3(texture (mat._diffuseSampler2D, textureCoord));
   
       //return (diffuseResult + specularResult + ambientResult);
       return diffuseResult + ambientResult;
@@ -177,28 +187,42 @@ export function MeshViewer(canvasDOM) {
       return diffuseResult + specularResult;
     }
 
-    vec4 skyBoxReflection ()
+    vec4 skyBoxReflection()
     {
       vec3 viewDir = normalize(vec3(fragPosWld) - cameraPosWld);
       vec3 toSkyBoxDir = reflect(viewDir, normal);
       return vec4(texture(skybox, toSkyBoxDir).rgb, 1.0);
     }
 
-    vec4 skyBoxRefraction ()
+    vec4 skyBoxRefraction()
     {
       vec3 viewDir = normalize(vec3(fragPosWld) - cameraPosWld);
       vec3 toSkyBoxDir = refract(viewDir, normal, 1.00 / 1.52);
       return vec4(texture(skybox, toSkyBoxDir).rgb, 1.0);
     }
 
+    bool inShadow(vec4 NDCCoordvec4) {
+      vec3 NDCCoord = NDCCoordvec4.xyz/NDCCoordvec4.w;
+      NDCCoord = NDCCoord * 0.5 + vec3(0.5);
+      float shadowMapDepth = texture(shadowMapTexture, NDCCoord.xy).r;
+      float bias = 0.005;
+      return NDCCoord.z >= shadowMapDepth + bias;
+    }
+
     void main()
     {
-      vec4 dirLightResult = vec4(GetDirLighting(g_dirLight, normal, normalize(cameraPosWld-vec3(fragPosWld))), 1.0);
-      //finalColor = vec4(texture(skybox, normal).rgb, 1.0);
+      vec4 dirLightResult = vec4(GetDirLighting(g_dirLight, normal, normalize(cameraPosWld-fragPosWld.xyz)), 1.0);
       if (skyboxRenderToggle)
-        finalColor = 0.1 * dirLightResult + 0.9 * skyBoxReflection() + 0.0 * skyBoxRefraction();
+      {
+        finalColor = 0.1 * dirLightResult + 0.9 * skyBoxReflection();
+      }
       else
+      {
         finalColor = dirLightResult;
+      }
+
+      if (inShadow(NDCCoordDirLight))
+        finalColor = vec4(finalColor.xyz * 0.2, 1.0);
     }
     `;
 
@@ -572,23 +596,23 @@ export function MeshViewer(canvasDOM) {
       FAR_CLIP_PLANE_DIST
     );
 
-    gl.useProgram(this.plainShader.shaderProgram);
-    gl.uniformMatrix4fv(
-      gl.getUniformLocation(this.plainShader.shaderProgram, "objMat"),
-      false,
-      objMat
-    );
-    gl.useProgram(this.plainShader.shaderProgram);
-    gl.uniformMatrix4fv(
-      gl.getUniformLocation(this.plainShader.shaderProgram, "viewMat"),
-      false,
-      viewMat
-    );
-    gl.uniformMatrix4fv(
-      gl.getUniformLocation(this.plainShader.shaderProgram, "projMat"),
-      false,
-      projMat
-    );
+    // gl.useProgram(this.plainShader.shaderProgram);
+    // gl.uniformMatrix4fv(
+    //   gl.getUniformLocation(this.plainShader.shaderProgram, "objMat"),
+    //   false,
+    //   objMat
+    // );
+    // gl.useProgram(this.plainShader.shaderProgram);
+    // gl.uniformMatrix4fv(
+    //   gl.getUniformLocation(this.plainShader.shaderProgram, "viewMat"),
+    //   false,
+    //   viewMat
+    // );
+    // gl.uniformMatrix4fv(
+    //   gl.getUniformLocation(this.plainShader.shaderProgram, "projMat"),
+    //   false,
+    //   projMat
+    // );
   }
 
   function setupSkyboxRender(gl) {
@@ -721,9 +745,10 @@ export function MeshViewer(canvasDOM) {
       float depthInShadowMap = texture(shadowMapTexture, vec2(NDCCoordIn0to1)).r;
       bool inShadow = NDCCoordIn0to1.z > depthInShadowMap ? true : false;
 
-      finalFragColor = inShadow ?
-         vec4(0.1, 0.1, 0.1, 1.0) :
-         vec4((diffuse + ambient + specularResult) * boardColor, 1.0);
+      finalFragColor = vec4((diffuse + ambient + specularResult) * boardColor, 1.0);
+      if (inShadow)
+        finalFragColor = vec4(finalFragColor.xyz * 0.2, 1.0);
+         
     }
     `;
     this.backBoardsShader = new Shader(
@@ -816,7 +841,7 @@ export function MeshViewer(canvasDOM) {
     const projMat = mat4.create();
     mat4.perspective(
       projMat,
-      degreeToRadian(FIELD_OF_VIEW_DEGREES), 
+      degreeToRadian(FIELD_OF_VIEW_DEGREES),
       this.canvasDOM.clientWidth / this.canvasDOM.clientHeight,
       NEAR_CLIP_PLANE_DIST,
       FAR_CLIP_PLANE_DIST
@@ -828,11 +853,25 @@ export function MeshViewer(canvasDOM) {
       vec3.fromValues(0.0, 1.0, 0.0)
     );
     const dirLight = {
-      dir: vec3.fromValues(1.0, -0.5, -0.0),
+      dir: vec3.fromValues(1.0, -0.5, -0.5),
       ambient: vec3.fromValues(0.1, 0.1, 0.1),
       diffuse: vec3.fromValues(0.8, 0.9, 0.5),
       specular: vec3.fromValues(1.0, 1.0, 1.0),
     };
+
+    //view matrix from light's point of view
+    const dirLightViewMat = mat4.create();
+    let dirLightPos = vec3.create();
+    vec3.negate(dirLightPos, dirLight.dir);
+    mat4.lookAt(
+      dirLightViewMat,
+      dirLightPos, //camera position
+      vec3.fromValues(0.0, 0.0, 0.0), //camera focus position, world origin
+      vec3.fromValues(0.0, 1.0, 0.0)
+    );
+    //projection matrix from light's point of view
+    const dirLightProjMat = mat4.create();
+    mat4.ortho(dirLightProjMat, -0.5, 0.5, -0.5, 0.5, 0.01, 2.0);
 
     function renderShadowMap(gl) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowMapFBO);
@@ -840,31 +879,19 @@ export function MeshViewer(canvasDOM) {
       gl.viewport(0, 0, SHADOW_MAP_WIDTH, SHADOW_MAP_HEIGHT);
       gl.clear(gl.DEPTH_BUFFER_BIT);
       this.gl.useProgram(this.shadowMapShader.shaderProgram);
-      //view matrix from light's point of view
-      const dirLightViewMat = mat4.create();
-      let dirLightPos = vec3.create();
-      vec3.negate(dirLightPos, dirLight.dir);
-      mat4.lookAt(
-        dirLightViewMat,
-        dirLightPos,  //camera position
-        vec3.fromValues(0.0, 0.0, 0.0), //camera focus position, world origin
-        vec3.fromValues(0.0, 1.0, 0.0)
-      );
       gl.uniformMatrix4fv(
-        gl.getUniformLocation(this.shadowMapShader.shaderProgram, "viewFromLightMat"),
+        gl.getUniformLocation(
+          this.shadowMapShader.shaderProgram,
+          "viewFromLightMat"
+        ),
         false,
         dirLightViewMat
       );
-
-      //projection matrix from light's point of view
-      const dirLightProjMat = mat4.create();
-      mat4.ortho(dirLightProjMat, -0.5, 0.5, -0.5, 0.5, 0.01, 2.0);
       gl.uniformMatrix4fv(
         gl.getUniformLocation(this.shadowMapShader.shaderProgram, "projMat"),
         false,
         dirLightProjMat
       );
-
       //object matrix, this is rendering the bunny so use bunny's model matrix
       gl.uniformMatrix4fv(
         gl.getUniformLocation(this.shadowMapShader.shaderProgram, "modelMat"),
@@ -874,7 +901,12 @@ export function MeshViewer(canvasDOM) {
       gl.bindVertexArray(this.vaoBunny);
       gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture); //bind the cubeTexture
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboBunny);
-      gl.drawElements(gl.TRIANGLES, this.meshData.faces.length, gl.UNSIGNED_SHORT, 0);
+      gl.drawElements(
+        gl.TRIANGLES,
+        this.meshData.faces.length,
+        gl.UNSIGNED_SHORT,
+        0
+      );
       gl.bindVertexArray(null);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -885,30 +917,34 @@ export function MeshViewer(canvasDOM) {
       gl.viewport(0, 0, this.canvasDOM.width, this.canvasDOM.height);
       gl.useProgram(this.shadowMapTestBoardShader.shaderProgram);
       gl.uniformMatrix4fv(
-        gl.getUniformLocation(this.shadowMapTestBoardShader.shaderProgram, "viewMat"),
+        gl.getUniformLocation(
+          this.shadowMapTestBoardShader.shaderProgram,
+          "viewMat"
+        ),
         false,
         viewMat
       );
       gl.uniformMatrix4fv(
-        gl.getUniformLocation(this.shadowMapTestBoardShader.shaderProgram, "projMat"),
+        gl.getUniformLocation(
+          this.shadowMapTestBoardShader.shaderProgram,
+          "projMat"
+        ),
         false,
         projMat
       );
       const modelMat = mat4.create();
       gl.uniformMatrix4fv(
-        gl.getUniformLocation(this.shadowMapTestBoardShader.shaderProgram, "modelMat"),
+        gl.getUniformLocation(
+          this.shadowMapTestBoardShader.shaderProgram,
+          "modelMat"
+        ),
         false,
         modelMat
       );
       gl.bindVertexArray(this.vaoShadowMapTestBoard);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.drawIndexShadowMapTestBoard);
       gl.bindTexture(gl.TEXTURE_2D, this.shadowMapTextureSunLight);
-      gl.drawElements(
-        gl.TRIANGLES,
-        6,
-        gl.UNSIGNED_SHORT,
-        0
-      );
+      gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
       gl.bindVertexArray(null);
       gl.bindTexture(gl.TEXTURE_2D, null);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
@@ -934,35 +970,51 @@ export function MeshViewer(canvasDOM) {
         projMat
       );
       gl.uniform3f(
-        gl.getUniformLocation(this.backBoardsShader.shaderProgram, "g_cameraPos"),
-        this.cameraPosWld[0], this.cameraPosWld[1], this.cameraPosWld[2]
+        gl.getUniformLocation(
+          this.backBoardsShader.shaderProgram,
+          "g_cameraPos"
+        ),
+        this.cameraPosWld[0],
+        this.cameraPosWld[1],
+        this.cameraPosWld[2]
       );
       gl.uniform3f(
-        gl.getUniformLocation(this.backBoardsShader.shaderProgram, "g_dirLight._dir"),
-        dirLight.dir[0], dirLight.dir[1], dirLight.dir[2],
+        gl.getUniformLocation(
+          this.backBoardsShader.shaderProgram,
+          "g_dirLight._dir"
+        ),
+        dirLight.dir[0],
+        dirLight.dir[1],
+        dirLight.dir[2]
       );
       gl.uniform3f(
-        gl.getUniformLocation(this.backBoardsShader.shaderProgram, "g_dirLight._ambient"),
-        dirLight.ambient[0], dirLight.ambient[1], dirLight.ambient[2],
+        gl.getUniformLocation(
+          this.backBoardsShader.shaderProgram,
+          "g_dirLight._ambient"
+        ),
+        dirLight.ambient[0],
+        dirLight.ambient[1],
+        dirLight.ambient[2]
       );
       gl.uniform3f(
-        gl.getUniformLocation(this.backBoardsShader.shaderProgram, "g_dirLight._diffuse"),
-        dirLight.diffuse[0], dirLight.diffuse[1], dirLight.diffuse[2],
+        gl.getUniformLocation(
+          this.backBoardsShader.shaderProgram,
+          "g_dirLight._diffuse"
+        ),
+        dirLight.diffuse[0],
+        dirLight.diffuse[1],
+        dirLight.diffuse[2]
       );
       gl.uniform3f(
-        gl.getUniformLocation(this.backBoardsShader.shaderProgram, "g_dirLight._specular"),
-        dirLight.specular[0], dirLight.specular[1], dirLight.specular[2],
+        gl.getUniformLocation(
+          this.backBoardsShader.shaderProgram,
+          "g_dirLight._specular"
+        ),
+        dirLight.specular[0],
+        dirLight.specular[1],
+        dirLight.specular[2]
       );
       //shadow map related
-      let dirLightPos = vec3.create();
-      vec3.negate(dirLightPos, dirLight.dir);
-      const dirLightViewMat = mat4.create();
-      mat4.lookAt(
-        dirLightViewMat,
-        dirLightPos,
-        vec3.fromValues(0.0, 0.0, 0.0),
-        vec3.fromValues(0.0, 1.0, 0.0)
-      )
       gl.uniformMatrix4fv(
         gl.getUniformLocation(
           this.backBoardsShader.shaderProgram,
@@ -971,8 +1023,6 @@ export function MeshViewer(canvasDOM) {
         false,
         dirLightViewMat
       );
-      const dirLightProjMat = mat4.create();
-      mat4.ortho(dirLightProjMat, -0.5, 0.5, -0.5, 0.5, 0.01, 2.0);
       gl.uniformMatrix4fv(
         gl.getUniformLocation(
           this.backBoardsShader.shaderProgram,
@@ -1027,6 +1077,7 @@ export function MeshViewer(canvasDOM) {
     ///////////////////////////////////////////////
     //////// draw the skybox ////////////////
     ///////////////////////////////////////////////
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     if (this.skyboxRenderToggle) {
       gl.useProgram(this.skyboxShader.shaderProgram);
       gl.uniformMatrix4fv(
@@ -1051,7 +1102,6 @@ export function MeshViewer(canvasDOM) {
     //////// draw the bunny ////////////////
     ///////////////////////////////////////////////
     gl.useProgram(this.plainShader.shaderProgram);
-
     gl.uniform3f(
       gl.getUniformLocation(this.plainShader.shaderProgram, "g_dirLight._dir"),
       dirLight.dir[0],
@@ -1115,21 +1165,62 @@ export function MeshViewer(canvasDOM) {
       false,
       modelMatBunny
     );
-
     gl.uniform1i(
-      gl.getUniformLocation(this.plainShader.shaderProgram, "skyboxRenderToggle"),
+      gl.getUniformLocation(
+        this.plainShader.shaderProgram,
+        "skyboxRenderToggle"
+      ),
       this.skyboxRenderToggle
-    )
+    );
+    gl.uniformMatrix4fv(
+      gl.getUniformLocation(this.plainShader.shaderProgram, "dirLightViewMat"),
+      false,
+      dirLightViewMat,
+    );
+    gl.uniformMatrix4fv(
+      gl.getUniformLocation(this.plainShader.shaderProgram, "dirLightProjMat"),
+      false,
+      dirLightProjMat,
+    );
 
     gl.bindVertexArray(this.vaoBunny);
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture); //bind the cubeTexture
+    //bind the cubeTexture
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.shadowMapTextureSunLight); //bind the shadowmap
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture);
+
+    gl.uniform1i(
+      gl.getUniformLocation(
+        this.plainShader.shaderProgram,
+        "shadowMapTexture"
+      ),
+      0
+    );
+
+    gl.uniform1i(
+      gl.getUniformLocation(
+        this.plainShader.shaderProgram,
+        "skybox"
+      ),
+      1
+    );
 
     //gl.drawArrays(gl.TRIANGLES, 0, this.processedMesh.length / 6);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboBunny);
-    gl.drawElements(gl.TRIANGLES, this.meshData.faces.length, gl.UNSIGNED_SHORT, 0);
-    gl.bindVertexArray(null);
+    gl.drawElements(
+      gl.TRIANGLES,
+      this.meshData.faces.length,
+      gl.UNSIGNED_SHORT,
+      0
+    );
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-
+    gl.bindVertexArray(null);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+    gl.activeTexture(gl.TEXTURE0);
     this.curRequestedFrame = requestAnimationFrame(this.render);
   }
 
