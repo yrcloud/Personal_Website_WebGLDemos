@@ -578,7 +578,7 @@ export function MeshViewer(canvasDOM) {
 
     const viewMat = mat4.create();
     this.cameraFocusPosWld = vec3.fromValues(0, 0.1, 0);
-    this.cameraPosWld = vec3.fromValues(0.0, 0.15, 0.15);
+    this.cameraPosWld = vec3.fromValues(0.0, 0.15, 0.165);
     this.cameraUp = vec3.fromValues(0.0, 1.0, 0.0);
     mat4.lookAt(
       viewMat,
