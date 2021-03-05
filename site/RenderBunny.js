@@ -651,8 +651,6 @@ export function MeshViewer(canvasDOM) {
     uniform mat4 projMat;
     uniform mat4 dirLightViewMat;
     uniform mat4 dirLightProjMat;
-    uniform sampler2D shadowMapTexture;
-    uniform samplerCube skybox;
 
     out vec3 fNormal;
     out vec3 fPos;
@@ -661,8 +659,8 @@ export function MeshViewer(canvasDOM) {
     void main()
     {
       gl_Position = projMat * viewMat * modelMat * vec4(vPos, 1.0);
-      fNormal = vNormal;
-      fPos = vPos;
+      fNormal = mat3(modelMat) * vNormal;
+      fPos = (modelMat * vec4(vPos, 1.0)).xyz;
       NDCPosShadowMap = dirLightProjMat * dirLightViewMat * modelMat * vec4(vPos, 1.0);
     }
     `;
@@ -672,10 +670,13 @@ export function MeshViewer(canvasDOM) {
     in vec3 fNormal;
     in vec3 fPos;
     in vec4 NDCPosShadowMap;
-    out vec4 finalFragColor;
-    uniform sampler2D shadowMapTexture;
-    uniform samplerCube skybox;
 
+    out vec4 finalFragColor;
+
+    uniform sampler2D shadowMapTexture;
+    uniform samplerCube skyboxTexture;
+    uniform bool skyboxEffectOn;
+    uniform vec3 g_cameraPos;
     struct DirLight 
     {
       vec3 _dir;
@@ -683,36 +684,55 @@ export function MeshViewer(canvasDOM) {
       vec3 _diffuse;
       vec3 _specular;
     };
-
     uniform DirLight g_dirLight;
-    uniform vec3 g_cameraPos;
+  
+    vec3 g_boardColor = vec3(0.3, 0.7, 0.9);
 
-    vec3 boardColor = vec3(0.3, 0.7, 0.9);
+    vec3 skyboxReflectCalc()
+    {
+      vec3 viewDir = normalize(fPos-g_cameraPos);
+      vec3 toSkyboxDir = reflect(viewDir, fNormal);
+      return texture(skyboxTexture, toSkyboxDir).rgb;
+    }
+
+    vec3 skyboxRefractCalc()
+    {
+      vec3 viewDir = normalize(fPos-g_cameraPos);
+      vec3 toSkyboxDir = refract(viewDir, fNormal, 1.00/1.52);
+      return texture(skyboxTexture, toSkyboxDir).rgb;
+    }
+
+    vec3 dirLightCalc()
+    {
+      vec3 dirLightDir = normalize(g_dirLight._dir);
+      vec3 diffuse = dot(fNormal, -dirLightDir) * g_dirLight._diffuse;
+
+      vec3 dirLightReflect = reflect(dirLightDir, fNormal);
+      vec3 dirPosToCamera = normalize(g_cameraPos - fPos);
+      float specularStrength = clamp(dot(dirLightReflect, dirPosToCamera), 0.0f, 1.0f);
+      specularStrength = pow(specularStrength, 16.0);
+      vec3 specular = specularStrength * g_dirLight._specular;
+
+      vec3 ambient = g_dirLight._ambient;
+      return (diffuse + specular + ambient) * g_boardColor;
+    }
+
+    bool inShadow()
+    {
+      vec3 NDCCoord = NDCPosShadowMap.xyz/NDCPosShadowMap.w;
+      vec3 shadowMapCoord = NDCCoord * 0.5 + vec3(0.5);
+      float depthInShadowMap = texture(shadowMapTexture, shadowMapCoord.xy).r;
+      float bias = 0.005;
+      return (depthInShadowMap + bias <= shadowMapCoord.z );
+    }
     
     void main()
     {
-      vec3 normal = normalize(fNormal);
-      vec3 dirLightDir = normalize(g_dirLight._dir);
-      vec3 diffuse = dot(normal, -dirLightDir) * g_dirLight._diffuse;
-    
-      vec3 dirLightReflect = reflect(dirLightDir, normal);
-      vec3 dirPosToCamera = normalize(g_cameraPos - fPos);
-      float specular = dot(dirLightReflect, dirPosToCamera);
-      specular = clamp(specular, 0.0f, 1.0f);
-      specular = pow (specular, 16.0); //32 is shininess
-      vec3 specularResult = specular * g_dirLight._specular;
-
-      vec3 ambient = g_dirLight._ambient;
-
-      vec3 NDCCoord = vec3(NDCPosShadowMap.x/NDCPosShadowMap.w, NDCPosShadowMap.y/NDCPosShadowMap.w, NDCPosShadowMap.z/NDCPosShadowMap.w);
-      vec3 NDCCoordIn0to1 = NDCCoord * 0.5 + vec3(0.5);
-      float depthInShadowMap = texture(shadowMapTexture, vec2(NDCCoordIn0to1)).r;
-      bool inShadow = NDCCoordIn0to1.z > depthInShadowMap ? true : false;
-
-      finalFragColor = vec4((diffuse + ambient + specularResult) * boardColor, 1.0);
-      if (inShadow)
+      finalFragColor = skyboxEffectOn ? 
+          vec4(0.5 * skyboxReflectCalc() + 0.5 * skyboxRefractCalc(), 1.0) : 
+          vec4(dirLightCalc(), 1.0);
+      if (inShadow())
         finalFragColor = vec4(finalFragColor.xyz * 0.2, 1.0);
-         
     }
     `;
     this.backBoardsShader = new Shader(
@@ -998,7 +1018,30 @@ export function MeshViewer(canvasDOM) {
         false,
         dirLightProjMat
       );
+      gl.uniform1i(
+        gl.getUniformLocation(
+          this.backBoardsShader.shaderProgram,
+          "skyboxEffectOn"
+        ),
+        this.skyboxRenderToggle
+      );
+      gl.uniform1i(
+        gl.getUniformLocation(
+          this.backBoardsShader.shaderProgram,
+          "shadowMapTexture"
+        ),
+        0
+      );
+      gl.uniform1i(
+        gl.getUniformLocation(
+          this.backBoardsShader.shaderProgram,
+          "skyboxTexture"
+        ),
+        1
+      );
+      gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, this.shadowMapTextureDirLight);
+      gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboBackBoards);
       gl.drawElements(
@@ -1009,6 +1052,11 @@ export function MeshViewer(canvasDOM) {
       );
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
       gl.bindVertexArray(null);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+      gl.activeTexture(gl.TEXTURE0);
     }
 
     function renderSkybox(gl) {
