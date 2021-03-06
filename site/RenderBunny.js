@@ -553,8 +553,8 @@ export function MeshViewer(canvasDOM) {
     );
     gl.bindVertexArray(null);
 
-    this.drawIndexShadowMapTestBoard = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.drawIndexShadowMapTestBoard);
+    this.eaboShadowMapTestBoard = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboShadowMapTestBoard);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(drawIndices), gl.STATIC_DRAW);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
@@ -944,7 +944,7 @@ export function MeshViewer(canvasDOM) {
         modelMat
       );
       gl.bindVertexArray(this.vaoShadowMapTestBoard);
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.drawIndexShadowMapTestBoard);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboShadowMapTestBoard);
       gl.bindTexture(gl.TEXTURE_2D, this.shadowMapTextureDirLight);
       gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
       gl.bindVertexArray(null);
@@ -1302,24 +1302,37 @@ export function MeshViewer(canvasDOM) {
     this.gl.deleteBuffer(this.vboBunny);
     this.gl.deleteBuffer(this.vboSkybox);
     this.gl.deleteBuffer(this.vboBackBoards);
+    this.gl.deleteBuffer(this.vboShadowMapTestBoard)
 
     //VAOs
     this.gl.bindVertexArray(null);
     this.gl.deleteVertexArray(this.vaoBunny);
     this.gl.deleteVertexArray(this.vaoSkybox);
     this.gl.deleteVertexArray(this.vaoBackBoards);
+    this.gl.deleteVertexArray(this.vaoShadowMapTestBoard);
 
     //element array buffers
-    this.gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+    this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, null);
     this.gl.deleteBuffer(this.eaboBunny);
+    this.gl.deleteBuffer(this.eaboBackBoards);
+    if (this.eaboShadowMapTestBoard != null)
+      this.gl.deleteBuffer(this.eaboShadowMapTestBoard);
 
+    //framebuffer objects
     if (this.shadowMapFBO != null) {
       console.log("this.shadowMapFBO is: ", this.shadowMapFBO);
       this.gl.deleteFramebuffer(this.shadowMapFBO);
     }
+
+    //textures
     if (this.shadowMapTextureDirLight != null) {
       this.gl.deleteTexture(this.shadowMapTextureDirLight);
     }
+    if (this.cubeMapTexture != null) {
+      this.gl.deleteTexture(this.cubeMapTexture);
+    }
+
+    //shaders
     this.mainMeshShader.cleanUp();
     this.skyboxShader.cleanUp();
     this.backBoardsShader.cleanUp();
