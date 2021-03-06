@@ -60,7 +60,7 @@ export function NavBarBehaviors() {
         const HTMLToInsert = `<div id="leftControlPanel">
         <div id="skyBoxToggleDiv">
             <input type="checkbox" id="skyBoxCheckbox">
-            <label for="skyBoxCheckbox">SkyBox Reflection</label>
+            <label for="skyBoxCheckbox">SkyBox Reflection/Refraction</label>
         </div>
         <div id="shadowToggleDiv">
             <input type="checkbox" id="shadowCheckbox">
