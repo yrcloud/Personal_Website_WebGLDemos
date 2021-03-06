@@ -60,7 +60,11 @@ export function NavBarBehaviors() {
         const HTMLToInsert = `<div id="leftControlPanel">
         <div id="skyBoxToggleDiv">
             <input type="checkbox" id="skyBoxCheckbox">
-            <label for="skyBoxCheckbox">SkyBox Reflection</label>
+            <label for="skyBoxCheckbox">SkyBox Reflection/Refraction</label>
+        </div>
+        <div id="shadowToggleDiv">
+            <input type="checkbox" id="shadowCheckbox">
+            <label for="shadowCheckbox">Shadows</label>
         </div>
     </div>`;
         //remove and insert elements
@@ -75,6 +79,10 @@ export function NavBarBehaviors() {
           //alert(skyboxCheckbox.checked);
           this.curRenderObj.skyboxRenderToggle = skyboxCheckbox.checked;
         });
+        const shadowCheckbox = document.querySelector("#shadowCheckbox");
+        shadowCheckbox.addEventListener("change", (event)=>{
+          this.curRenderObj.shadowToggle = shadowCheckbox.checked;
+        })
         //set attributes
         mainDisplayDivDOM.setAttribute("loadedApp", "MeshViewer");
         canvasDOM.setAttribute("loadedApp", "MeshViewer");
@@ -94,24 +102,24 @@ export function NavBarBehaviors() {
     if (!canvasDOM) return;
     const navBarObj = this;
     function mouseMoveHandler(event) {
-      console.log("entered mouseMoveHandler, with event: ", event);
+      //console.log("entered mouseMoveHandler, with event: ", event);
       const deltaX = (event.x - this.lastMouseX) / 10.0;
       if (navBarObj.curRenderObj instanceof MeshViewer) {
-        console.log("current render target is MeshViewer");
+        //console.log("current render target is MeshViewer");
         navBarObj.curRenderObj.rotatedYAngle += deltaX;
-        console.log("rotatedYAngle is: ", navBarObj.curRenderObj.rotatedYAngle);
+        //console.log("rotatedYAngle is: ", navBarObj.curRenderObj.rotatedYAngle);
       }
       // console.log("event.target is: ", event.target);
       // console.log("navBarObj is: ", navBarObj);
       this.lastMouseX = event.x;
     }
     function mouseDownHandler(event) {
-      console.log("installing mouseMoveHandler");
+      //console.log("installing mouseMoveHandler");
       this.lastMouseX = event.x;
       canvasDOM.addEventListener("mousemove", mouseMoveHandler);
     }
     function mouseUpHandler(event) {
-      console.log("removing mouseMoveHandler");
+      //console.log("removing mouseMoveHandler");
       canvasDOM.removeEventListener("mousemove", mouseMoveHandler);
       this.lastMouseX = null;
     }
