@@ -62,6 +62,10 @@ export function NavBarBehaviors() {
             <input type="checkbox" id="skyBoxCheckbox">
             <label for="skyBoxCheckbox">SkyBox Reflection</label>
         </div>
+        <div id="shadowToggleDiv">
+            <input type="checkbox" id="shadowCheckbox">
+            <label for="shadowCheckbox">Shadows</label>
+        </div>
     </div>`;
         //remove and insert elements
         document.getElementById("leftControlPanel")?.remove();
@@ -75,6 +79,10 @@ export function NavBarBehaviors() {
           //alert(skyboxCheckbox.checked);
           this.curRenderObj.skyboxRenderToggle = skyboxCheckbox.checked;
         });
+        const shadowCheckbox = document.querySelector("#shadowCheckbox");
+        shadowCheckbox.addEventListener("change", (event)=>{
+          this.curRenderObj.shadowToggle = shadowCheckbox.checked;
+        })
         //set attributes
         mainDisplayDivDOM.setAttribute("loadedApp", "MeshViewer");
         canvasDOM.setAttribute("loadedApp", "MeshViewer");

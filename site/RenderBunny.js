@@ -25,8 +25,8 @@ export function MeshViewer(canvasDOM) {
   const NEAR_CLIP_PLANE_DIST = 0.01;
   const FAR_CLIP_PLANE_DIST = 50.0;
   const FIELD_OF_VIEW_DEGREES = 90.0;
-  const SHADOW_MAP_WIDTH = 1024;
-  const SHADOW_MAP_HEIGHT = 1024;
+  const SHADOW_MAP_WIDTH = 2048;
+  const SHADOW_MAP_HEIGHT = 2048;
   this.gl = canvasDOM.getContext("webgl2");
   this.canvasDOM = canvasDOM;
   console.log("gl context in MeshViewer constructor is: ", this.gl);
@@ -158,6 +158,8 @@ export function MeshViewer(canvasDOM) {
     uniform sampler2D shadowMapTexture;
     uniform samplerCube skybox;
     uniform bool skyboxRenderToggle;
+    uniform bool shadowEffectOn;
+    uniform vec2 shadowMapTexResol;
 
     out vec4 finalColor;
   
@@ -182,16 +184,10 @@ export function MeshViewer(canvasDOM) {
       float specular = clamp (dot(reflectDir, viewDir), 0.0f, 1.0f);
       specular = pow (specular, 16.0); //32 is shininess
       vec3 specularResult = specular * light._specular;
-  
-      /*
-      //ambient last
-      vec3 ambientResult = light._ambient * simTextColor; 
-      //vec3(texture (mat._diffuseSampler2D, textureCoord));
-  
-      //return (diffuseResult + specularResult + ambientResult);
-      return diffuseResult + ambientResult;
-      */
-      return diffuseResult + specularResult;
+
+      vec3 ambientResult = light._ambient;
+
+      return diffuseResult + specularResult + ambientResult;
     }
 
     vec4 skyBoxReflection()
@@ -208,12 +204,27 @@ export function MeshViewer(canvasDOM) {
       return vec4(texture(skybox, toSkyBoxDir).rgb, 1.0);
     }
 
-    bool inShadow(vec4 NDCCoordvec4) {
+    float shadowStrength(vec4 NDCCoordvec4) {
       vec3 NDCCoord = NDCCoordvec4.xyz/NDCCoordvec4.w;
       NDCCoord = NDCCoord * 0.5 + vec3(0.5);
-      float shadowMapDepth = texture(shadowMapTexture, NDCCoord.xy).r;
       float bias = 0.005;
-      return NDCCoord.z >= shadowMapDepth + bias;
+      float strength = 0.0;
+      for (float x = -1.0; x < 1.01; x += 1.0)
+      {
+        for (float y = -1.0; y < 1.01; y += 1.0)
+        {
+          vec2 shadowCoord = NDCCoord.xy + vec2(x,y)/shadowMapTexResol;
+          if (NDCCoord.z >= texture(shadowMapTexture, shadowCoord).r + bias)
+          {
+            strength += 1.0;
+          }
+        }
+      }
+      strength /= 9.0;
+      return strength;
+      // float shadowMapDepth = texture(shadowMapTexture, NDCCoord.xy).r;
+      // float bias = 0.005;
+      // return NDCCoord.z >= shadowMapDepth + bias;
     }
 
     void main()
@@ -228,8 +239,11 @@ export function MeshViewer(canvasDOM) {
         finalColor = dirLightResult;
       }
 
-      if (inShadow(NDCCoordDirLight))
-        finalColor = vec4(finalColor.xyz * 0.2, 1.0);
+      if (shadowEffectOn)
+      {
+        float shadowStr = shadowStrength(NDCCoordDirLight) * 0.6;
+        finalColor = vec4(finalColor.xyz * (1.0 - shadowStr), 1.0);
+      }
     }
     `;
 
@@ -676,6 +690,7 @@ export function MeshViewer(canvasDOM) {
     uniform sampler2D shadowMapTexture;
     uniform samplerCube skyboxTexture;
     uniform bool skyboxEffectOn;
+    uniform bool shadowEffectOn;
     uniform vec3 g_cameraPos;
     struct DirLight 
     {
@@ -731,8 +746,8 @@ export function MeshViewer(canvasDOM) {
       finalFragColor = skyboxEffectOn ? 
           vec4(0.5 * skyboxReflectCalc() + 0.5 * skyboxRefractCalc(), 1.0) : 
           vec4(dirLightCalc(), 1.0);
-      if (inShadow())
-        finalFragColor = vec4(finalFragColor.xyz * 0.2, 1.0);
+      if (shadowEffectOn && inShadow())
+        finalFragColor = vec4(finalFragColor.xyz * 0.4, 1.0);
     }
     `;
     this.backBoardsShader = new Shader(
@@ -788,7 +803,7 @@ export function MeshViewer(canvasDOM) {
 
   function setupControls() {
     this.skyboxRenderToggle = false;
-    this.shadowToggle = true;
+    this.shadowToggle = false;
   }
 
   ////////////////////////////////////////////////////////////
@@ -1028,6 +1043,13 @@ export function MeshViewer(canvasDOM) {
       gl.uniform1i(
         gl.getUniformLocation(
           this.backBoardsShader.shaderProgram,
+          "shadowEffectOn"
+        ),
+        this.shadowToggle
+      );
+      gl.uniform1i(
+        gl.getUniformLocation(
+          this.backBoardsShader.shaderProgram,
           "shadowMapTexture"
         ),
         0
@@ -1153,6 +1175,21 @@ export function MeshViewer(canvasDOM) {
           "skyboxRenderToggle"
         ),
         this.skyboxRenderToggle
+      );
+      gl.uniform1i(
+        gl.getUniformLocation(
+          this.mainMeshShader.shaderProgram,
+          "shadowEffectOn"
+        ),
+        this.shadowToggle
+      );
+      gl.uniform2f(
+        gl.getUniformLocation(
+          this.mainMeshShader.shaderProgram,
+          "shadowMapTexResol"
+        ),
+        SHADOW_MAP_WIDTH,
+        SHADOW_MAP_HEIGHT
       );
       gl.uniformMatrix4fv(
         gl.getUniformLocation(this.mainMeshShader.shaderProgram, "dirLightViewMat"),
