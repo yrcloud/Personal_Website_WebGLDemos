@@ -114,6 +114,54 @@ export function MeshViewer(canvasDOM) {
     return textureID;
   }
 
+  async function createBackBoardsTextures(gl) {
+    async function loadOneImg (srcPath) {
+      const loadOneImgPromise = new Promise ((resolve)=>{
+        const imgDOM = document.createElement("img");
+        imgDOM.src = srcPath;
+        imgDOM.onload = ()=>{
+          resolve(imgDOM);
+        };
+      });
+      const newImgDOM = await loadOneImgPromise;
+      console.log(
+        "image loaded. Result is ",
+        newImgDOM,
+        ", with width and heigh of ",
+        newImgDOM.width,
+        newImgDOM.height
+      );
+      return newImgDOM;
+    }
+    const wallImgDOM = await loadOneImg("./images/walls_floor/brickwall.jpg");
+    const floorImgDOM = await loadOneImg("./images/walls_floor/wood.png");
+    const imgDOMs = [wallImgDOM, floorImgDOM];
+    const textures = [];
+
+    for (let i=0; i<2; i++){
+      const texture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        imgDOMs[i].width,
+        imgDOMs[i].height,
+        0,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        imgDOMs[i]
+      );
+      textures.push(texture);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+    return textures;
+  }
+
   function setupCommonData(gl) {
     this.cameraFocusPosWld = vec3.fromValues(0, 0.1, 0);
     this.cameraPosWld = vec3.fromValues(0.0, 0.15, 0.165);
@@ -659,6 +707,7 @@ export function MeshViewer(canvasDOM) {
     const backBoardsVertexShader = `#version 300 es
     layout (location=0) in vec3 vPos;
     layout (location=1) in vec3 vNormal;
+    layout (location=2) in vec2 vTexCoord;
 
     uniform mat4 modelMat;
     uniform mat4 viewMat;
@@ -669,6 +718,7 @@ export function MeshViewer(canvasDOM) {
     out vec3 fNormal;
     out vec3 fPos;
     out vec4 NDCPosShadowMap;
+    out vec2 fTexCoord;
 
     void main()
     {
@@ -676,6 +726,7 @@ export function MeshViewer(canvasDOM) {
       fNormal = mat3(modelMat) * vNormal;
       fPos = (modelMat * vec4(vPos, 1.0)).xyz;
       NDCPosShadowMap = dirLightProjMat * dirLightViewMat * modelMat * vec4(vPos, 1.0);
+      fTexCoord = vTexCoord;
     }
     `;
 
@@ -684,11 +735,13 @@ export function MeshViewer(canvasDOM) {
     in vec3 fNormal;
     in vec3 fPos;
     in vec4 NDCPosShadowMap;
+    in vec2 fTexCoord;
 
     out vec4 finalFragColor;
 
     uniform sampler2D shadowMapTexture;
     uniform samplerCube skyboxTexture;
+    uniform sampler2D boardTexture;
     uniform bool skyboxEffectOn;
     uniform bool shadowEffectOn;
     uniform vec3 g_cameraPos;
@@ -701,7 +754,7 @@ export function MeshViewer(canvasDOM) {
     };
     uniform DirLight g_dirLight;
   
-    vec3 g_boardColor = vec3(0.3, 0.7, 0.9);
+    vec3 g_boardColor = vec3(1.0, 1.0, 1.0);
 
     vec3 skyboxReflectCalc()
     {
@@ -721,6 +774,7 @@ export function MeshViewer(canvasDOM) {
     {
       vec3 dirLightDir = normalize(g_dirLight._dir);
       vec3 diffuse = dot(fNormal, -dirLightDir) * g_dirLight._diffuse;
+      diffuse *= texture(boardTexture, fTexCoord).rgb;
 
       vec3 dirLightReflect = reflect(dirLightDir, fNormal);
       vec3 dirPosToCamera = normalize(g_cameraPos - fPos);
@@ -768,34 +822,51 @@ export function MeshViewer(canvasDOM) {
     this.vaoBackBoards = gl.createVertexArray();
     gl.bindVertexArray(this.vaoBackBoards);
     gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 6 * FLOAT_BYTE_SIZE, 0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 8 * FLOAT_BYTE_SIZE, 0);
     gl.enableVertexAttribArray(1);
     gl.vertexAttribPointer(
       1,
       3,
       gl.FLOAT,
       false,
-      6 * FLOAT_BYTE_SIZE,
+      8 * FLOAT_BYTE_SIZE,
       3 * FLOAT_BYTE_SIZE
     );
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(
+      2,
+      2,
+      gl.FLOAT,
+      false,
+      8 * FLOAT_BYTE_SIZE,
+      6 * FLOAT_BYTE_SIZE
+    )
     gl.bindVertexArray(null);
     //element array buffer (drawing index);
-    this.drawIndexBackBoards = [
-      0, 1, 2,  
-      2, 3, 0, 
+    this.drawIndexWalls = [
       4, 5, 6, 
       6, 7, 4,
       8, 9, 10,
       10, 11, 8,
+    ];
+    this.drawIndexFloor = [
+      0, 1, 2,  
+      2, 3, 0, 
     ]
-    this.eaboBackBoards = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboBackBoards);
+    this.eaboWalls = gl.createBuffer();
+    this.eaboFloor = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboWalls);
     gl.bufferData(
       gl.ELEMENT_ARRAY_BUFFER,
-      new Int16Array(this.drawIndexBackBoards),
+      new Int16Array(this.drawIndexWalls),
       gl.STATIC_DRAW
     );
-
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboFloor);
+    gl.bufferData(
+      gl.ELEMENT_ARRAY_BUFFER,
+      new Int16Array(this.drawIndexFloor),
+      gl.STATIC_DRAW
+    );
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
     gl.bindVertexArray(null);
@@ -815,6 +886,7 @@ export function MeshViewer(canvasDOM) {
     // this.canvasDOM.width = this.canvasDOM.clientWidth;
     // this.canvasDOM.height = this.canvasDOM.clientHeight;
     this.cubeMapTexture = await createSkyBoxTexture(gl);
+    this.backBoardsTextures = await createBackBoardsTextures(gl);
     //console.log("right after function call of createSkyBoxTexture");
     setupCommonData.call(this, gl);
     setupShadowMap.call(this, gl);
@@ -857,7 +929,7 @@ export function MeshViewer(canvasDOM) {
     const dirLight = {
       dir: vec3.fromValues(1.0, -0.5, -0.5),
       ambient: vec3.fromValues(0.1, 0.1, 0.1),
-      diffuse: vec3.fromValues(0.8, 0.9, 0.5),
+      diffuse: vec3.fromValues(1.0, 1.0, 1.0),
       specular: vec3.fromValues(1.0, 1.0, 1.0),
     };
 
@@ -1061,14 +1133,39 @@ export function MeshViewer(canvasDOM) {
         ),
         1
       );
+      gl.uniform1i(
+        gl.getUniformLocation(
+          this.backBoardsShader.shaderProgram,
+          "boardTexture"
+        ),
+        2
+      );
+      // gl.uniform1i(
+      //   gl.getUniformLocation(
+      //     this.backBoardsShader.shaderProgram,
+      //     "floorTexture"
+      //   ),
+      //   3
+      // );
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, this.shadowMapTextureDirLight);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture);
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboBackBoards);
+      gl.activeTexture(gl.TEXTURE2);
+      gl.bindTexture(gl.TEXTURE_2D, this.backBoardsTextures[0]); //wall
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboWalls);
       gl.drawElements(
         gl.TRIANGLES,
-        this.drawIndexBackBoards.length,
+        this.drawIndexWalls.length,
+        gl.UNSIGNED_SHORT,
+        0
+      );
+
+      gl.bindTexture(gl.TEXTURE_2D, this.backBoardsTextures[1]); //floor
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboFloor);
+      gl.drawElements(
+        gl.TRIANGLES,
+        this.drawIndexFloor.length,
         gl.UNSIGNED_SHORT,
         0
       );
@@ -1314,7 +1411,8 @@ export function MeshViewer(canvasDOM) {
     //element array buffers
     this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, null);
     this.gl.deleteBuffer(this.eaboBunny);
-    this.gl.deleteBuffer(this.eaboBackBoards);
+    this.gl.deleteBuffer(this.eaboWalls);
+    this.gl.deleteBuffer(this.eaboFloor);
     if (this.eaboShadowMapTestBoard != null)
       this.gl.deleteBuffer(this.eaboShadowMapTestBoard);
 
