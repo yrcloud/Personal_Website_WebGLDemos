@@ -708,6 +708,8 @@ export function MeshViewer(canvasDOM) {
     layout (location=0) in vec3 vPos;
     layout (location=1) in vec3 vNormal;
     layout (location=2) in vec2 vTexCoord;
+    layout (location=3) in vec3 T;
+    layout (location=4) in vec3 B;
 
     uniform mat4 modelMat;
     uniform mat4 viewMat;
@@ -719,6 +721,8 @@ export function MeshViewer(canvasDOM) {
     out vec3 fPos;
     out vec4 NDCPosShadowMap;
     out vec2 fTexCoord;
+    out vec3 fT;
+    out vec3 fB;
 
     void main()
     {
@@ -736,12 +740,16 @@ export function MeshViewer(canvasDOM) {
     in vec3 fPos;
     in vec4 NDCPosShadowMap;
     in vec2 fTexCoord;
+    in vec3 fT;
+    in vec3 fB;
 
     out vec4 finalFragColor;
 
     uniform sampler2D shadowMapTexture;
     uniform samplerCube skyboxTexture;
     uniform sampler2D boardTexture;
+    uniform sampler2D normalMapTexture;
+    uniform bool normalMapEffectOn;
     uniform bool skyboxEffectOn;
     uniform bool shadowEffectOn;
     uniform vec3 g_cameraPos;
@@ -756,27 +764,27 @@ export function MeshViewer(canvasDOM) {
   
     vec3 g_boardColor = vec3(1.0, 1.0, 1.0);
 
-    vec3 skyboxReflectCalc()
+    vec3 skyboxReflectCalc(vec3 normalVector)
     {
       vec3 viewDir = normalize(fPos-g_cameraPos);
-      vec3 toSkyboxDir = reflect(viewDir, fNormal);
+      vec3 toSkyboxDir = reflect(viewDir, normalVector);
       return texture(skyboxTexture, toSkyboxDir).rgb;
     }
 
-    vec3 skyboxRefractCalc()
+    vec3 skyboxRefractCalc(vec3 normalVector)
     {
       vec3 viewDir = normalize(fPos-g_cameraPos);
-      vec3 toSkyboxDir = refract(viewDir, fNormal, 1.00/1.52);
+      vec3 toSkyboxDir = refract(viewDir, normalVector, 1.00/1.52);
       return texture(skyboxTexture, toSkyboxDir).rgb;
     }
 
-    vec3 dirLightCalc()
+    vec3 dirLightCalc(vec3 normalVector)
     {
       vec3 dirLightDir = normalize(g_dirLight._dir);
-      vec3 diffuse = dot(fNormal, -dirLightDir) * g_dirLight._diffuse;
+      vec3 diffuse = dot(normalVector, -dirLightDir) * g_dirLight._diffuse;
       diffuse *= texture(boardTexture, fTexCoord).rgb;
 
-      vec3 dirLightReflect = reflect(dirLightDir, fNormal);
+      vec3 dirLightReflect = reflect(dirLightDir, normalVector);
       vec3 dirPosToCamera = normalize(g_cameraPos - fPos);
       float specularStrength = clamp(dot(dirLightReflect, dirPosToCamera), 0.0f, 1.0f);
       specularStrength = pow(specularStrength, 16.0);
@@ -794,12 +802,19 @@ export function MeshViewer(canvasDOM) {
       float bias = 0.005;
       return (depthInShadowMap + bias <= shadowMapCoord.z );
     }
+
+    vec3 calcNormal()
+    {
+      vec3 fN = cross(fT, fB);
+      mat3 wldToTangent = mat3(fT, fB, fN);
+      
+    }
     
     void main()
     {
       finalFragColor = skyboxEffectOn ? 
-          vec4(0.5 * skyboxReflectCalc() + 0.5 * skyboxRefractCalc(), 1.0) : 
-          vec4(dirLightCalc(), 1.0);
+          vec4(0.5 * skyboxReflectCalc(fNormal) + 0.4 * skyboxRefractCalc(fNormal) + 0.1 * dirLightCalc(fNormal), 1.0) : 
+          vec4(dirLightCalc(fNormal), 1.0);
       if (shadowEffectOn && inShadow())
         finalFragColor = vec4(finalFragColor.xyz * 0.4, 1.0);
     }
@@ -821,26 +836,44 @@ export function MeshViewer(canvasDOM) {
     //vertex array object
     this.vaoBackBoards = gl.createVertexArray();
     gl.bindVertexArray(this.vaoBackBoards);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 8 * FLOAT_BYTE_SIZE, 0);
-    gl.enableVertexAttribArray(1);
+    gl.enableVertexAttribArray(0); //vertex pos
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 14 * FLOAT_BYTE_SIZE, 0);
+    gl.enableVertexAttribArray(1); //vertex normal
     gl.vertexAttribPointer(
       1,
       3,
       gl.FLOAT,
       false,
-      8 * FLOAT_BYTE_SIZE,
+      14 * FLOAT_BYTE_SIZE,
       3 * FLOAT_BYTE_SIZE
     );
-    gl.enableVertexAttribArray(2);
+    gl.enableVertexAttribArray(2); //uv coord
     gl.vertexAttribPointer(
       2,
       2,
       gl.FLOAT,
       false,
-      8 * FLOAT_BYTE_SIZE,
+      14 * FLOAT_BYTE_SIZE,
       6 * FLOAT_BYTE_SIZE
-    )
+    );
+    gl.enableVertexAttribArray(3); //uv coord
+    gl.vertexAttribPointer(
+      3,
+      3,
+      gl.FLOAT,
+      false,
+      14 * FLOAT_BYTE_SIZE,
+      8 * FLOAT_BYTE_SIZE
+    );
+    gl.enableVertexAttribArray(4); //uv coord
+    gl.vertexAttribPointer(
+      4,
+      3,
+      gl.FLOAT,
+      false,
+      14 * FLOAT_BYTE_SIZE,
+      11 * FLOAT_BYTE_SIZE
+    );
     gl.bindVertexArray(null);
     //element array buffer (drawing index);
     this.drawIndexWalls = [
