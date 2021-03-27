@@ -135,10 +135,11 @@ export function MeshViewer(canvasDOM) {
     }
     const wallImgDOM = await loadOneImg("./images/walls_floor/brickwall.jpg");
     const floorImgDOM = await loadOneImg("./images/walls_floor/wood.png");
-    const imgDOMs = [wallImgDOM, floorImgDOM];
+    const wallNormalImgDOM = await loadOneImg("./images/walls_floor/brickwall_normal.jpg");
+    const imgDOMs = [wallImgDOM, floorImgDOM, wallNormalImgDOM];
     const textures = [];
 
-    for (let i=0; i<2; i++){
+    for (let i=0; i<3; i++){
       const texture = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -731,6 +732,8 @@ export function MeshViewer(canvasDOM) {
       fPos = (modelMat * vec4(vPos, 1.0)).xyz;
       NDCPosShadowMap = dirLightProjMat * dirLightViewMat * modelMat * vec4(vPos, 1.0);
       fTexCoord = vTexCoord;
+      fT = normalize(T);
+      fB = normalize(B);
     }
     `;
 
@@ -805,16 +808,20 @@ export function MeshViewer(canvasDOM) {
 
     vec3 calcNormal()
     {
+      if (!normalMapEffectOn) return fNormal;
       vec3 fN = cross(fT, fB);
-      mat3 wldToTangent = mat3(fT, fB, fN);
-      
+      mat3 tangentToWld = mat3(fT, fB, fN);
+      vec3 normalMapOrig = texture(normalMapTexture, fTexCoord).rgb;
+      vec3 actualNormal = normalize(normalMapOrig * 2.0 - 1.0);
+      return tangentToWld * actualNormal;
     }
     
     void main()
-    {
+    { 
+      vec3 finalNormal = calcNormal();
       finalFragColor = skyboxEffectOn ? 
-          vec4(0.5 * skyboxReflectCalc(fNormal) + 0.4 * skyboxRefractCalc(fNormal) + 0.1 * dirLightCalc(fNormal), 1.0) : 
-          vec4(dirLightCalc(fNormal), 1.0);
+          vec4(0.5 * skyboxReflectCalc(finalNormal) + 0.4 * skyboxRefractCalc(finalNormal) + 0.1 * dirLightCalc(finalNormal), 1.0) : 
+          vec4(dirLightCalc(finalNormal), 1.0);
       if (shadowEffectOn && inShadow())
         finalFragColor = vec4(finalFragColor.xyz * 0.4, 1.0);
     }
@@ -1173,19 +1180,28 @@ export function MeshViewer(canvasDOM) {
         ),
         2
       );
-      // gl.uniform1i(
-      //   gl.getUniformLocation(
-      //     this.backBoardsShader.shaderProgram,
-      //     "floorTexture"
-      //   ),
-      //   3
-      // );
+      gl.uniform1i(
+        gl.getUniformLocation(
+          this.backBoardsShader.shaderProgram,
+          "normalMapTexture"
+        ),
+        3
+      );
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, this.shadowMapTextureDirLight);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeMapTexture);
       gl.activeTexture(gl.TEXTURE2);
       gl.bindTexture(gl.TEXTURE_2D, this.backBoardsTextures[0]); //wall
+      gl.activeTexture(gl.TEXTURE3);
+      gl.bindTexture(gl.TEXTURE_2D, this.backBoardsTextures[2]); //wall normal map
+      gl.uniform1i(
+        gl.getUniformLocation(
+          this.backBoardsShader.shaderProgram,
+          "normalMapEffectOn"
+        ),
+        true
+      );
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboWalls);
       gl.drawElements(
         gl.TRIANGLES,
@@ -1194,7 +1210,15 @@ export function MeshViewer(canvasDOM) {
         0
       );
 
+      gl.activeTexture(gl.TEXTURE2);
       gl.bindTexture(gl.TEXTURE_2D, this.backBoardsTextures[1]); //floor
+      gl.uniform1i(
+        gl.getUniformLocation(
+          this.backBoardsShader.shaderProgram,
+          "normalMapEffectOn"
+        ),
+        false
+      );
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.eaboFloor);
       gl.drawElements(
         gl.TRIANGLES,
@@ -1208,6 +1232,10 @@ export function MeshViewer(canvasDOM) {
       gl.bindTexture(gl.TEXTURE_2D, null);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+      gl.activeTexture(gl.TEXTURE2);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.activeTexture(gl.TEXTURE3);
+      gl.bindTexture(gl.TEXTURE_2D, null);
       gl.activeTexture(gl.TEXTURE0);
     }
 
